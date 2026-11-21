@@ -48,10 +48,12 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
   state.speed = clamp(state.speed + clamp(diff, -def.acceleration * dt, def.acceleration * dt) - state.speed * turnLoad * dt, 4, def.boostSpeed * 1.08);
 
   const speedFactor = clamp(state.speed / def.maxSpeed, 0.38, 1.3);
+  const lowSpeed = 1 - clamp(state.speed / def.maxSpeed, 0, 1);
+  const turnAssist = 2.1 + lowSpeed * 1.2;
   const q = new Quaternion(state.qx, state.qy, state.qz, state.qw);
-  const pitchRate = def.pitchRate * speedFactor;
-  const rollRate = def.rollRate * clamp(speedFactor, 0.55, 1.2);
-  const yawRate = def.yawRate * speedFactor;
+  const pitchRate = def.pitchRate * speedFactor * turnAssist;
+  const rollRate = def.rollRate * clamp(speedFactor, 0.55, 1.2) * (1.3 + lowSpeed * 0.6);
+  const yawRate = def.yawRate * speedFactor * turnAssist;
 
   if (Math.abs(pitch) > 0.001) {
     axis.set(1, 0, 0);

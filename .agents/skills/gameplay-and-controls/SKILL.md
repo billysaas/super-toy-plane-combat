@@ -12,6 +12,7 @@ user-invocable: false
 
 - Inverted pitch means mouse down and joystick down both pitch the nose up.
 - The mobile stick multiplies vertical input by `settings.invertY`; keep this aligned with mouse steering.
+- `integrateFlight` applies a 2.1× turn assist, rising to 3.3× near minimum speed; turn radius shrinks continuously as speed drops and is about 50% tighter than the original baseline at maximum and boost speed.
 - Keep collision bounces, damage and respawn behavior consistent between local and online play.
 - The chase camera uses aspect-aware FOV and distance. Portrait gets a wider FOV and slightly farther camera; preserve that when tuning.
 
