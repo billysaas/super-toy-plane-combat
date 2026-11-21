@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1324" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="description" content="Super Toy Plane Combat - arcade 3D dogfighting in a giant toy house." />
+    <title>Super Toy Plane Combat</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="scanlines"></div>
+
+    <div id="loading-screen" class="loading-screen">
+      <div class="load-emblem"><svg viewBox="0 0 120 120" aria-hidden="true"><path d="M60 5 L67 42 L67 55 L112 68 L112 78 L67 70 L65 96 L84 107 L84 113 L60 104 L36 113 L36 107 L55 96 L53 70 L8 78 L8 68 L53 55 L53 42 Z"/></svg></div>
+      <h1 class="load-title">SUPER TOY<br /><span>PLANE COMBAT</span></h1>
+      <div class="loading-track"><div id="loading-fill" class="loading-fill"></div></div>
+      <p id="loading-label" class="loading-label">UNPACKING THE TOY BOX...</p>
+    </div>
+
+    <section id="menu-screen" class="screen menu-screen active">
+      <header class="brand-strip">
+        <div class="roundel"><span></span></div>
+        <div>
+          <h2>SUPER TOY PLANE COMBAT</h2>
+          <p>ARCADE DOGFIGHTING IN A VERY SMALL WORLD</p>
+        </div>
+      </header>
+      <div class="menu-column">
+        <div class="eyebrow">DOGFIGHTERS OF THE GREAT INDOORS</div>
+        <h1 class="menu-title">FLY LOW.<br /><span>HIT HARD.</span></h1>
+        <p class="menu-blurb">A toy house. A garden. A sky full of tiny warbirds.<br />Pick a fighter and rule the living room.</p>
+        <div class="menu-buttons">
+          <button id="btn-solo" class="btn btn-primary"><span class="btn-kicker">01</span> SOLO SORTIE</button>
+          <button id="btn-multiplayer" class="btn btn-red"><span class="btn-kicker">02</span> MULTIPLAYER</button>
+          <button id="btn-hangar" class="btn"><span class="btn-kicker">03</span> HANGAR</button>
+          <button id="btn-settings" class="btn"><span class="btn-kicker">04</span> SETTINGS</button>
+          <button id="btn-tutorial" class="btn"><span class="btn-kicker">?</span> FLIGHT SCHOOL</button>
+        </div>
+        <div class="menu-foot">
+          <span>DESKTOP: CLICK TO STEER</span><span>MOBILE: LANDSCAPE + TOUCH</span><span>ASSETS: POLYFORK.DEV (CC BY 4.0) · TYPE: GOOGLE FONTS (OFL)</span>
+        </div>
+      </div>
+      <div class="menu-side-card">
+        <div class="panel-corner">MISSION</div>
+        <div class="mission-patch">RAF</div>
+        <h3>OPERATION<br />LIVING ROOM</h3>
+        <p>24-PLAYER SCALABILITY TARGET<br />7 MINUTE TEAM DOGFIGHTS</p>
+        <div class="tape">FLY THROUGH WINDOWS · USE THE FURNITURE · MIND THE CHANDELIER</div>
+      </div>
+    </section>
+
+    <section id="solo-screen" class="screen menu-screen">
+      <header class="sub-header">
+        <button class="btn btn-small btn-ghost back-button" data-back>← BACK</button>
+        <div><span class="eyebrow">OFFLINE</span><h2>SOLO SORTIE</h2></div>
+        <div class="header-badge">AI DOGFIGHT</div>
+      </header>
+      <div class="setup-layout">
+        <div class="setup-main">
+          <div class="panel">
+            <div class="panel-title">ENGAGEMENT TYPE</div>
+            <div class="segmented" id="solo-mode">
+              <button data-mode="tdm" class="selected">TEAM DEATHMATCH</button>
+              <button data-mode="ffa">FREE FOR ALL</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">OPPOSITION <span id="enemy-count-label">5 BANDITS</span></div>
+            <input id="enemy-count" class="range" type="range" min="1" max="11" value="5" />
+            <div class="range-ticks"><span>1</span><span>SKY FULL</span><span>11</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">BANDIT SKILL</div>
+            <div class="difficulty-grid" id="difficulty-grid">
+              <button data-difficulty="rookie"><b>ROOKIE</b><span>Training wheels off</span></button>
+              <button data-difficulty="pilot" class="selected"><b>PILOT</b><span>A fair scrap</span></button>
+              <button data-difficulty="ace"><b>ACE</b><span>No mercy</span></button>
+            </div>
+          </div>
+        </div>
+        <aside class="setup-side panel">
+          <div class="panel-title">YOUR AIRCRAFT</div>
+          <div id="solo-aircraft-preview" class="solo-aircraft-preview"></div>
+          <button id="solo-change-aircraft" class="btn btn-ghost btn-small">CHANGE IN HANGAR</button>
+          <div id="solo-aircraft-picker" class="aircraft-picker"></div>
+          <div class="dispatch-note">
+            <span>DISPATCH:</span> Enemy fighters will scramble from all over the house. Keep your speed up and use the garden for a clean getaway.
+          </div>
+          <button id="btn-start-solo" class="btn btn-primary btn-wide">SCRAMBLE!</button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="hangar-screen" class="screen menu-screen">
+      <header class="sub-header">
+        <button class="btn btn-small btn-ghost back-button" data-back>← BACK</button>
+        <div><span class="eyebrow">SELECT YOUR WARBIRD</span><h2>THE HANGAR</h2></div>
+        <div class="header-badge">4 AIRFRAMES</div>
+      </header>
+      <div class="hangar-layout">
+        <div class="aircraft-grid" id="hangar-cards"></div>
+        <aside class="hangar-detail panel">
+          <div class="panel-title">SPEC SHEET</div>
+          <div id="hangar-preview"></div>
+          <div id="hangar-stats"></div>
+          <button id="btn-select-aircraft" class="btn btn-primary btn-wide">FLY THIS ONE</button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="settings-screen" class="screen menu-screen">
+      <header class="sub-header">
+        <button class="btn btn-small btn-ghost back-button" data-back>← BACK</button>
+        <div><span class="eyebrow">RADIO CHECK</span><h2>SETTINGS</h2></div>
+        <div class="header-badge">PILOT PREFS</div>
+      </header>
+      <div class="settings-layout">
+        <div class="panel settings-panel">
+          <div class="panel-title">GRAPHICS</div>
+          <div class="segmented" id="quality-select">
+            <button data-quality="low">LOW</button>
+            <button data-quality="medium">MEDIUM</button>
+            <button data-quality="high" class="selected">HIGH</button>
+          </div>
+          <div class="setting-row"><label for="set-volume">MASTER VOLUME <b id="volume-label">75%</b></label><input id="set-volume" type="range" min="0" max="100" value="75" /></div>
+          <div class="setting-row"><label for="set-sensitivity">MOUSE SENSITIVITY <b id="sensitivity-label">1.0</b></label><input id="set-sensitivity" type="range" min="30" max="250" value="100" /></div>
+          <div class="setting-row switch-row"><label for="set-invert">INVERT MOUSE PITCH</label><input id="set-invert" type="checkbox" class="pixel-check" /></div>
+          <div class="setting-row switch-row"><label for="set-tracers">SHOW TRACERS</label><input id="set-tracers" type="checkbox" class="pixel-check" checked /></div>
+          <div class="setting-row"><label>DEFAULT CAMERA</label>
+            <div class="segmented segmented-small" id="camera-select">
+              <button data-camera="chase" class="selected">CHASE</button>
+              <button data-camera="cockpit">COCKPIT</button>
+            </div>
+          </div>
+          <div class="setting-row"><label for="set-name">PILOT CALLSIGN</label><input id="set-name" class="pixel-input" maxlength="16" value="TopGun" /></div>
+          <button id="btn-save-settings" class="btn btn-primary btn-wide">SAVE & RETURN</button>
+        </div>
+        <div class="panel controls-summary">
+          <div class="panel-title">THE CONTROLS</div>
+          <div class="key-row"><span class="key">W</span><span class="key">S</span><span>Pitch up / down</span></div>
+          <div class="key-row"><span class="key">A</span><span class="key">D</span><span>Roll left / right</span></div>
+          <div class="key-row"><span class="key">Q</span><span class="key">E</span><span>Rudder / yaw</span></div>
+          <div class="key-row"><span class="key wide">MOUSE</span><span>Steer (click to lock)</span></div>
+          <div class="key-row"><span class="key">SHIFT</span><span>Boost</span></div>
+          <div class="key-row"><span class="key">SPACE</span><span>Machine guns</span></div>
+          <div class="key-row"><span class="key">R</span><span>Rockets</span></div>
+          <div class="key-row"><span class="key">Z</span><span class="key">X</span><span>Throttle</span></div>
+          <div class="key-row"><span class="key">V</span><span>Camera</span><span><b>TAB</b> Scoreboard</span></div>
+          <div class="key-row"><span class="key">T</span><span>Chat</span><span><b>ESC</b> Pause</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tutorial-screen" class="screen menu-screen">
+      <header class="sub-header">
+        <button class="btn btn-small btn-ghost back-button" data-back>← BACK</button>
+        <div><span class="eyebrow">ACADEMY</span><h2>FLIGHT SCHOOL</h2></div>
+        <div class="header-badge">60 SECOND BRIEF</div>
+      </header>
+      <div class="tutorial-layout">
+        <div class="panel">
+          <div class="panel-title">01 — TAKE OFF</div>
+          <p>Your toy fighter launches already airborne. Hold <b>SHIFT</b> for boost, use <b>Z / X</b> or the mouse wheel for throttle, and keep the nose out of the rug.</p>
+          <div class="panel-title">02 — TURN FIGHT</div>
+          <p>Pitch and roll with <b>WASD</b> or the mouse. Bank hard, then add <b>Q / E</b> rudder to tighten the turn. The yaw rate is lower than the roll rate — use both.</p>
+          <div class="panel-title">03 — SHOOT</div>
+          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. Rockets track whatever you have locked in your sights.</p>
+          <div class="panel-title">04 — SURVIVE</div>
+          <p>Health regenerates only when you respawn. Watch the smoke trail and break off when your wings are red. Fly through windows, under the dining table, and around the garden to lose a tail.</p>
+        </div>
+        <div class="panel">
+          <div class="panel-title">MAP INTEL</div>
+          <div class="map-card">
+            <div class="map-house"></div>
+            <div class="map-garden"></div>
+            <span class="map-label living">LIVING ROOM</span>
+            <span class="map-label kitchen">KITCHEN</span>
+            <span class="map-label garden">GARDEN</span>
+            <span class="map-label bedroom">BEDROOMS</span>
+            <span class="map-label patio">PATIO</span>
+          </div>
+          <div class="panel-title">TOUCH PILOTS</div>
+          <p>Use the virtual stick with your left thumb. Throttle, fire, boost, rockets and camera are on the right. Play in landscape with headphones for the best experience.</p>
+          <div class="warning-strip">COLLISIONS HURT. THE CHANDELIER DOES NOT MOVE FOR YOU.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="multiplayer-screen" class="screen menu-screen">
+      <header class="sub-header">
+        <button class="btn btn-small btn-ghost back-button" data-back>← BACK</button>
+        <div><span class="eyebrow">ONLINE SKIRMISH</span><h2>MULTIPLAYER</h2></div>
+        <div class="header-badge"><span id="server-dot" class="status-dot"></span> SERVER <span id="server-status">DISCONNECTED</span></div>
+      </header>
+      <div class="multiplayer-layout">
+        <div class="panel multiplayer-rooms">
+          <div class="panel-title-row"><div class="panel-title">PUBLIC ROOMS <span id="room-count">0</span></div><button id="btn-refresh-rooms" class="btn btn-small btn-ghost">REFRESH</button></div>
+          <div id="room-list" class="room-list">
+            <div class="empty-rooms">NO ROOMS IN THE AIR.<br />START A SORTIE OR QUICK MATCH.</div>
+          </div>
+          <div class="join-code-row">
+            <input id="join-code" class="pixel-input" maxlength="8" placeholder="ROOM CODE" />
+            <button id="btn-join-code" class="btn btn-small">JOIN BY CODE</button>
+          </div>
+          <div id="mp-error" class="error-strip"></div>
+          <button id="btn-quick-match" class="btn btn-primary btn-wide">QUICK MATCH</button>
+        </div>
+        <aside class="panel multiplayer-create">
+          <div class="panel-title">CREW ROSTER</div>
+          <label class="field-label" for="mp-name">PILOT CALLSIGN</label>
+          <input id="mp-name" class="pixel-input" maxlength="16" value="TopGun" />
+          <label class="field-label" for="mp-max">MAX PILOTS</label>
+          <select id="mp-max" class="pixel-select">
+            <option value="4">4</option>
+            <option value="8">8</option>
+            <option value="12" selected>12</option>
+            <option value="16">16</option>
+            <option value="24">24</option>
+          </select>
+          <label class="field-label">MATCH TYPE</label>
+          <div class="segmented segmented-small" id="mp-mode">
+            <button data-mode="tdm" class="selected">TEAM DM</button>
+            <button data-mode="ffa">FREE FOR ALL</button>
+          </div>
+          <label class="field-label">ROOM VISIBILITY</label>
+          <div class="segmented segmented-small" id="mp-privacy">
+            <button data-private="false" class="selected">PUBLIC</button>
+            <button data-private="true">PRIVATE</button>
+          </div>
+          <div class="dispatch-note">The server is authoritative for hits, respawns and scores. Up to 24 pilots per room. Keep it civil on the radio.</div>
+          <button id="btn-create-room" class="btn btn-red btn-wide">CREATE ROOM</button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="lobby-screen" class="screen menu-screen">
+      <header class="sub-header">
+        <button id="btn-leave-lobby" class="btn btn-small btn-ghost">← LEAVE</button>
+        <div><span class="eyebrow">MATCHMAKING LOBBY</span><h2 id="lobby-title">SORTIE LOBBY</h2></div>
+        <div class="header-badge">CODE <b id="lobby-code">------</b> <button id="btn-copy-code" class="copy-button">COPY</button></div>
+      </header>
+      <div class="lobby-layout">
+        <div class="lobby-teams">
+          <div class="team-column raf">
+            <div class="team-heading"><span>RAF</span><b id="lobby-raf-count">0</b></div>
+            <div id="lobby-raf-list" class="player-list"></div>
+            <button id="btn-team-raf" class="btn btn-small btn-team">JOIN RAF</button>
+          </div>
+          <div class="team-column axis">
+            <div class="team-heading"><span>AXIS</span><b id="lobby-axis-count">0</b></div>
+            <div id="lobby-axis-list" class="player-list"></div>
+            <button id="btn-team-axis" class="btn btn-small btn-team">JOIN AXIS</button>
+          </div>
+        </div>
+        <aside class="lobby-side panel">
+          <div class="panel-title">ROOM ORDERS</div>
+          <div id="lobby-mode-label" class="big-label">TEAM DEATHMATCH</div>
+          <div class="lobby-aircraft">
+            <span>YOUR WARBIRD</span>
+            <div id="lobby-aircraft-name">MEADOWHAWK</div>
+            <div id="lobby-aircraft-picker" class="aircraft-picker compact"></div>
+          </div>
+          <button id="btn-ready" class="btn btn-primary btn-wide">READY UP</button>
+          <button id="btn-host-start" class="btn btn-red btn-wide host-only">START MATCH</button>
+          <div class="lobby-status" id="lobby-status">WAITING FOR PILOTS...</div>
+        </aside>
+      </div>
+      <div class="lobby-chat-panel panel">
+        <div class="panel-title">RADIO CHAT</div>
+        <div id="lobby-chat" class="lobby-chat"></div>
+        <div class="chat-input-row"><input id="lobby-chat-input" class="pixel-input" maxlength="120" placeholder="MESSAGE THE SQUADRON..." /><button id="btn-lobby-chat" class="btn btn-small">SEND</button></div>
+      </div>
+    </section>
+
+    <div id="hud" class="hud hidden">
+      <div id="damage-vignette" class="damage-vignette"></div>
+      <div id="low-health" class="low-health"></div>
+      <div id="hud-top-left" class="hud-top-left">
+        <div class="hud-brand"><div class="mini-roundel"></div><div><b>SUPER TOY PLANE COMBAT</b><span id="hud-mode">TEAM DOGFIGHT</span></div></div>
+        <div id="hud-subline" class="hud-subline"><span id="hud-player-name">TopGun</span><span id="hud-aircraft-name">MEADOWHAWK</span></div>
+        <button id="btn-hud-menu" class="icon-btn hud-menu-btn" aria-label="Pause">II</button>
+      </div>
+      <div class="scoreboard-strip">
+        <div class="score-block blue"><span>RAF</span><b id="score-raf">0</b></div>
+        <div class="match-clock"><span id="match-mode-label">TEAM DEATHMATCH</span><b id="match-timer">07:24</b></div>
+        <div class="score-block red"><b id="score-axis">0</b><span>AXIS</span></div>
+      </div>
+      <div id="feed-panel" class="feed-panel"></div>
+      <div class="radar-wrap">
+        <canvas id="radar" width="200" height="200"></canvas>
+        <div class="radar-label n">N</div><div class="radar-label e">E</div><div class="radar-label s">S</div><div class="radar-label w">W</div>
+        <div id="radar-player" class="radar-player"></div>
+      </div>
+      <div id="target-bracket" class="target-bracket hidden">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <span id="target-distance">0M</span>
+        <div class="target-health"><span id="target-health-fill"></span></div>
+      </div>
+      <div id="crosshair" class="crosshair">
+        <div class="cross-center"></div>
+        <div class="cross-ring"></div>
+        <div class="cross-tick t"></div><div class="cross-tick b"></div><div class="cross-tick l"></div><div class="cross-tick r"></div>
+        <div id="hitmarker" class="hitmarker"></div>
+      </div>
+      <div id="kill-marker" class="kill-marker">BANDIT DOWN</div>
+      <div class="cockpit-overlay">
+        <div class="cockpit-arch"></div>
+        <div class="cockpit-strut left"></div>
+        <div class="cockpit-strut right"></div>
+        <div class="cockpit-dash"></div>
+        <div class="cockpit-glass"></div>
+        <div class="cockpit-gunsight"><span>GUNS</span></div>
+      </div>
+      <div class="hud-bars">
+        <div class="bar-block health-block"><span class="bar-label">HULL</span><div class="bar-shell"><div id="health-fill" class="bar-fill health"></div></div><b id="health-value">110</b></div>
+        <div class="bar-block boost-block"><span class="bar-label">BOOST</span><div class="bar-shell"><div id="boost-fill" class="bar-fill boost"></div></div><b id="boost-value">100</b></div>
+        <div class="bar-block throttle-block"><span class="bar-label">THROTTLE</span><div class="bar-shell"><div id="throttle-fill" class="bar-fill throttle"></div></div><b id="throttle-value">70</b></div>
+      </div>
+      <div class="chat-feed" id="chat-feed"></div>
+      <div class="hud-bottom-left">
+        <div class="gauge speed-gauge"><div class="gauge-needle" id="speed-needle"></div><div class="gauge-inner"><b id="speed-value">290</b><span>AIRSPD<br />MPH</span></div></div>
+        <div class="gauge alt-gauge"><div class="gauge-needle" id="alt-needle"></div><div class="gauge-inner"><b id="alt-value">48</b><span>ALT<br />FT</span></div></div>
+        <div class="hud-small-card">
+          <div class="mini-plane"><svg viewBox="0 0 80 50"><path d="M38 2h4l3 17 31 9v5l-31 3-3 10 8 3v3l-12-3-12 3v-3l8-3-3-10-31-3v-5l31-9z" /></svg></div>
+          <div class="weapon-row"><span>GUNS</span><b id="ammo-value">320</b></div>
+          <div class="weapon-row"><span>ROCKETS</span><b id="rocket-value">×4</b></div>
+          <div class="mini-footer"><span id="camera-label">CHASE CAM</span><span id="score-kd">0 / 0</span></div>
+        </div>
+      </div>
+      <div id="lock-prompt" class="lock-prompt hidden">CLICK TO STEER · <span>V</span> CAMERA · <span>TAB</span> SCORES</div>
+      <div id="respawn-overlay" class="respawn-overlay hidden"><div class="death-title">PLANE DOWN</div><div class="death-sub">TOY PILOT RECOVERED</div><div id="respawn-count" class="respawn-count">3</div><div class="death-sub">REDEPLOYING</div></div>
+      <div id="toast" class="toast hidden"></div>
+      <div id="chat-bar" class="chat-bar hidden"><span class="chat-prefix">[TEAM]</span><input id="chat-input" class="chat-input" maxlength="120" placeholder="TYPE A MESSAGE... (ENTER TO SEND, ESC TO CANCEL)" autocomplete="off" /></div>
+      <div id="spectate-hint" class="spectate-hint hidden">SPECTATING · WAITING FOR RESPAWN</div>
+    </div>
+
+    <div id="scoreboard-overlay" class="overlay hidden">
+      <div class="overlay-panel scoreboard-panel">
+        <div class="overlay-title">MISSION SCOREBOARD</div>
+        <div id="scoreboard-table" class="scoreboard-table"></div>
+        <div class="overlay-foot">HOLD TAB TO VIEW</div>
+      </div>
+    </div>
+
+    <div id="pause-screen" class="overlay hidden">
+      <div class="overlay-panel pause-panel">
+        <div class="overlay-kicker">RADIO SILENCE</div>
+        <h2>PAUSED</h2>
+        <p>The toy war can wait. Your engine is idling.</p>
+        <button id="btn-resume" class="btn btn-primary btn-wide">RESUME SORTIE</button>
+        <button id="btn-pause-settings" class="btn btn-wide">SETTINGS</button>
+        <button id="btn-quit-match" class="btn btn-ghost btn-wide">ABANDON MISSION</button>
+        <div class="pause-controls">WASD PITCH / ROLL · QE RUDDER · SHIFT BOOST · SPACE GUNS · R ROCKETS · V CAMERA · TAB SCORES</div>
+      </div>
+    </div>
+
+    <div id="results-screen" class="overlay hidden">
+      <div class="overlay-panel results-panel">
+        <div id="results-kicker" class="overlay-kicker">MISSION COMPLETE</div>
+        <h2 id="results-title">VICTORY</h2>
+        <div id="results-scoreline" class="results-scoreline"></div>
+        <div id="results-stats" class="results-stats"></div>
+        <div id="results-table" class="scoreboard-table"></div>
+        <div class="results-buttons">
+          <button id="btn-rematch" class="btn btn-primary btn-wide">FLY AGAIN</button>
+          <button id="btn-results-menu" class="btn btn-ghost btn-wide">RETURN TO MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="touch-ui" class="touch-ui hidden">
+      <div id="touch-stick-base" class="touch-stick-base"><div class="touch-stick-ring"></div><div id="touch-stick-knob" class="touch-stick-knob"></div><span class="touch-label">STICK</span></div>
+      <div class="touch-throttle-wrap"><span>THROTTLE</span><input id="touch-throttle" type="range" min="15" max="100" value="70" /><b id="touch-throttle-label">70</b></div>
+      <div class="touch-actions">
+        <button id="touch-camera" class="touch-btn touch-small">VIEW</button>
+        <button id="touch-rocket" class="touch-btn touch-small touch-rocket">RKT</button>
+        <button id="touch-boost" class="touch-btn touch-small touch-boost">BOOST</button>
+        <button id="touch-fire" class="touch-btn touch-fire">FIRE</button>
+      </div>
+      <button id="touch-chat" class="touch-chat-btn">CHAT</button>
+    </div>
+
+    <div id="rotate-hint" class="rotate-hint"><div class="rotate-icon">▭</div><b>ROTATE YOUR DEVICE</b><span>Super Toy Plane Combat flies best in landscape.</span></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
