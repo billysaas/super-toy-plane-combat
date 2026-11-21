@@ -16,7 +16,7 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 - **Solo play:** team deathmatch or free-for-all against 1–11 AI pilots with Rookie, Pilot and Ace difficulty.
 - **Online play:** Colyseus authoritative team deathmatch and free-for-all rooms for up to 24 players, public rooms, private rooms joined by code, matchmaking lobby, ready checks, teams, scoreboard, kill feed and radio chat.
 - **Desktop controls:** keyboard + mouse, pointer lock steering, wheel throttle.
-- **Mobile controls:** landscape-first virtual joystick, throttle slider, fire, boost, rocket and camera buttons, plus chat.
+- **Mobile controls:** portrait- and landscape-ready virtual joystick, throttle slider, fire, boost, rocket and camera buttons, plus chat.
 - **Pixel HUD:** vector/pixel fonts, team scores, match timer, radar, target lock, speed and altitude gauges, hull/boost/throttle bars, ammo counters and responsive touch layout.
 - **Performance controls:** low / medium / high graphics quality, DPR scaling, optional shadows, reduced point lights on low, particle caps, pooled effects and low-poly geometry.
 - **Procedural audio:** engine, guns, rockets, impacts and explosions synthesized with Web Audio. No sampled audio files.

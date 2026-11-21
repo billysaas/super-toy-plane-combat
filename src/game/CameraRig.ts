@@ -86,7 +86,8 @@ export class CameraRig {
     forward.set(0, 0, -1).applyQuaternion(q);
     right.set(1, 0, 0).applyQuaternion(q);
     up.set(0, 1, 0).applyQuaternion(q);
-    const targetFov = boosting ? 84 : this.mode === "cockpit" ? 76 : 72;
+    const portraitBoost = aspect < 0.8 ? 8 : 0;
+    const targetFov = (boosting ? 84 : this.mode === "cockpit" ? 76 : 72) + portraitBoost;
     this.fov = MathUtils.damp(this.fov, targetFov, 4, dt);
     this.camera.fov = this.fov;
     this.camera.updateProjectionMatrix();
@@ -97,8 +98,8 @@ export class CameraRig {
       this.currentQuat.slerp(q, Math.min(1, dt * 25));
       this.camera.quaternion.copy(this.currentQuat);
     } else {
-      const chaseDistance = 4.45 + speedRatio * 1.15;
-      const chaseHeight = 1.22 + speedRatio * 0.16;
+      const chaseDistance = 4.45 + speedRatio * 1.15 + (aspect < 0.8 ? 1.1 : 0);
+      const chaseHeight = 1.22 + speedRatio * 0.16 + (aspect < 0.8 ? 0.25 : 0);
       desired.set(0, chaseHeight, chaseDistance).applyQuaternion(q).add(new Vector3(f.x, f.y, f.z));
       const from = new Vector3(f.x, f.y, f.z);
       const dir = desired.clone().sub(from);

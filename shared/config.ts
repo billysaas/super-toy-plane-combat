@@ -196,7 +196,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: "high",
   masterVolume: 0.75,
   sensitivity: 1,
-  invertY: false,
+  invertY: true,
   camera: "chase",
   showTracers: true,
   playerName: "TopGun",

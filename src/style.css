@@ -2666,43 +2666,6 @@ select {
   pointer-events: auto;
 }
 
-.rotate-hint {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 30px;
-  text-align: center;
-  background: #08111f;
-}
-
-.rotate-hint b {
-  font-family: var(--pixel);
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.rotate-hint span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.rotate-icon {
-  color: var(--yellow);
-  font-size: 60px;
-  transform: rotate(90deg);
-  animation: rotate-bob 1.8s ease-in-out infinite;
-}
-
-@keyframes rotate-bob {
-  0%, 100% { transform: rotate(0deg); }
-  55% { transform: rotate(90deg); }
-}
-
 body.touch-playing .touch-ui {
   display: block;
 }
@@ -2825,7 +2788,177 @@ body.touch-playing .hud-small-card {
 }
 
 @media (pointer: coarse) and (orientation: portrait) {
-  .rotate-hint { display: flex; }
+  .screen {
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  }
+
+  .hud-top-left {
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    left: calc(env(safe-area-inset-left, 0px) + 10px);
+    min-width: 0;
+    max-width: calc(100vw - 136px);
+    padding: 7px 34px 7px 7px;
+  }
+
+  .mini-roundel {
+    width: 26px;
+    height: 26px;
+  }
+
+  .hud-brand {
+    gap: 7px;
+  }
+
+  .hud-brand span {
+    font-size: 8px;
+  }
+
+  .hud-menu-btn {
+    top: 6px;
+    right: 6px;
+    width: 24px;
+    height: 22px;
+  }
+
+  .radar-wrap {
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    right: calc(env(safe-area-inset-right, 0px) + 10px);
+    width: 94px;
+    height: 94px;
+    border-width: 3px;
+  }
+
+  .radar-label {
+    font-size: 6px;
+  }
+
+  .scoreboard-strip {
+    top: calc(env(safe-area-inset-top, 0px) + 114px);
+    width: calc(100% - 24px);
+    justify-content: center;
+  }
+
+  .score-block {
+    min-width: 68px;
+    height: 40px;
+    padding: 0 8px;
+    font-size: 7px;
+    gap: 4px;
+  }
+
+  .score-block b {
+    font-size: 13px;
+  }
+
+  .match-clock {
+    min-width: 84px;
+    height: 44px;
+    padding: 0 9px;
+  }
+
+  .match-clock b {
+    font-size: 11px;
+  }
+
+  .match-clock span {
+    display: none;
+  }
+
+  body.touch-playing .hud-bars {
+    top: calc(env(safe-area-inset-top, 0px) + 166px);
+    bottom: auto;
+    width: calc(100% - 96px);
+    max-width: 340px;
+    padding: 7px 10px;
+    background: rgba(6, 13, 23, 0.84);
+  }
+
+  .bar-block {
+    height: 16px;
+    gap: 6px;
+  }
+
+  .bar-label {
+    width: 38px;
+    font-size: 5px;
+  }
+
+  .bar-block b {
+    width: 26px;
+    font-size: 8px;
+  }
+
+  .feed-panel,
+  body.touch-playing .chat-feed {
+    display: none;
+  }
+
+  body.touch-playing .hud-bottom-left {
+    left: calc(env(safe-area-inset-left, 0px) + 10px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 154px);
+    transform: scale(0.6);
+    transform-origin: left bottom;
+  }
+
+  .touch-stick-base {
+    width: 128px;
+    height: 128px;
+    left: calc(env(safe-area-inset-left, 0px) + 14px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  .touch-stick-knob {
+    width: 50px;
+    height: 50px;
+    margin: -25px;
+  }
+
+  .touch-actions {
+    right: calc(env(safe-area-inset-right, 0px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    transform: scale(0.9);
+    transform-origin: right bottom;
+  }
+
+  .touch-throttle-wrap {
+    right: calc(env(safe-area-inset-right, 0px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 154px);
+    transform: scale(0.88);
+    transform-origin: right bottom;
+  }
+
+  .touch-chat-btn {
+    left: 50%;
+    right: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+    width: 46px;
+    height: 34px;
+    transform: translateX(-50%);
+  }
+
+  .respawn-overlay .death-title {
+    font-size: 24px;
+  }
+
+  .toast {
+    top: 255px;
+    max-width: 80vw;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .chat-bar {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 286px);
+    width: calc(100% - 24px);
+  }
+
+  .spectate-hint {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 182px);
+  }
+
+  .kill-marker {
+    top: calc(50% + 58px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

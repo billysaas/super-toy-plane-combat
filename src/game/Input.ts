@@ -140,7 +140,8 @@ export class InputManager {
       }
       knob.style.transform = `translate(${dx}px, ${dy}px)`;
       this.touch.roll = clamp(dx / max, -1, 1);
-      this.touch.pitch = clamp(-dy / max, -1, 1);
+      const pitchDirection = this.settings.invertY ? 1 : -1;
+      this.touch.pitch = clamp((dy / max) * pitchDirection, -1, 1);
     };
     base.addEventListener("pointerdown", (event) => {
       event.preventDefault();
