@@ -211,6 +211,60 @@ select {
   text-transform: uppercase;
 }
 
+.loading-prompt {
+  margin: -10px 0 0;
+  color: var(--yellow);
+  font-family: var(--pixel);
+  font-size: clamp(8px, 1.4vw, 12px);
+  line-height: 1.7;
+  letter-spacing: 0.1em;
+  text-align: center;
+  animation: prompt-blink 1.2s steps(1, end) infinite;
+}
+
+@keyframes prompt-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.12; }
+}
+
+.music-toggle {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: var(--yellow);
+  background: rgba(6, 13, 23, 0.82);
+  border: 2px solid rgba(246, 234, 209, 0.5);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.music-toggle:hover {
+  filter: brightness(1.18);
+}
+
+.music-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+.music-toggle .mute-slash {
+  display: none;
+}
+
+.music-toggle.muted {
+  color: #ff917d;
+}
+
+.music-toggle.muted .mute-slash {
+  display: block;
+}
+
 .screen {
   position: fixed;
   inset: 0;
@@ -523,6 +577,7 @@ select {
   justify-content: space-between;
   gap: 20px;
   flex-shrink: 0;
+  padding-right: 56px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
 }
@@ -2773,6 +2828,15 @@ body.touch-playing .hud-small-card {
   .menu-buttons .btn { flex: 1 1 100%; }
   .menu-foot { display: none; }
   .load-title { font-size: 17px; }
+  .loading-prompt { font-size: 8px; }
+  .music-toggle {
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    right: calc(env(safe-area-inset-right, 0px) + 10px);
+    width: 36px;
+    height: 36px;
+  }
+  .music-toggle svg { width: 18px; height: 18px; }
+  .sub-header { padding-right: 46px; }
   .aircraft-grid { grid-template-columns: 1fr; }
   .aircraft-card { min-height: 205px; }
   .lobby-teams { grid-template-columns: 1fr; }

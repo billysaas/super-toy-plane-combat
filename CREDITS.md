@@ -55,7 +55,10 @@ SIL Open Font License 1.1. License texts are included next to the font files.
 ## Audio
 
 All sound effects and engine sounds are synthesized in real time with the Web Audio
-API. No third-party audio files are bundled.
+API.
+
+Background music is "Valor on the Front Line" (`public/music/Valor on the Front Line_Audio.mp3`),
+provided by the project owner for use in this game.
 
 ## Visual and gameplay reference
 

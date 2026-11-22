@@ -1,3 +1,5 @@
+const MUSIC_TRACK = "/music/Valor on the Front Line_Audio.mp3";
+
 export class AudioManager {
   private ctx?: AudioContext;
   private master?: GainNode;
@@ -9,6 +11,9 @@ export class AudioManager {
   private volume = 0.75;
   private noiseBuffer?: AudioBuffer;
   private muted = false;
+  private music?: HTMLAudioElement;
+  private musicUserEnabled = true;
+  private menuMusicActive = false;
 
   init(): void {
     if (this.ctx) {
@@ -53,6 +58,47 @@ export class AudioManager {
 
   get isMuted(): boolean {
     return this.muted;
+  }
+
+  get isMusicEnabled(): boolean {
+    return this.musicUserEnabled;
+  }
+
+  setMenuMusic(active: boolean): void {
+    this.menuMusicActive = active;
+    this.syncMusic();
+  }
+
+  toggleMusic(): boolean {
+    this.musicUserEnabled = !this.musicUserEnabled;
+    this.syncMusic();
+    return this.musicUserEnabled;
+  }
+
+  private ensureMusic(): HTMLAudioElement | undefined {
+    if (this.music) return this.music;
+    if (!this.ctx || !this.master) return undefined;
+    const audio = new Audio(MUSIC_TRACK);
+    audio.loop = true;
+    audio.preload = "auto";
+    const source = this.ctx.createMediaElementSource(audio);
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.38;
+    source.connect(gain);
+    gain.connect(this.master);
+    this.music = audio;
+    return audio;
+  }
+
+  private syncMusic(): void {
+    if (!this.musicUserEnabled || !this.menuMusicActive) {
+      this.music?.pause();
+      return;
+    }
+    const music = this.ensureMusic();
+    if (!music) return;
+    if (this.ctx?.state === "suspended") void this.ctx.resume();
+    void music.play().catch(() => undefined);
   }
 
   startEngine(): void {

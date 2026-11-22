@@ -104,8 +104,8 @@ export class Game {
       this.applyQuality(this.quality);
       this.ui.setLoading(1, "Ready for takeoff");
       await new Promise((resolve) => window.setTimeout(resolve, 350));
-      this.ui.hideLoading();
-      this.ui.showScreen("menu", false);
+      this.ui.showLoadingContinue();
+      await this.waitForContinue();
       this.clock.start();
       this.animate();
     } catch (error) {
@@ -138,20 +138,39 @@ export class Game {
       onChatSend: (text) => this.sendChat(text),
       onLobbyChatSend: (text) => this.net.sendChat(text),
       onOpenChat: () => this.openChat(),
+      onToggleMusic: () => this.ui.setMusicEnabled(this.audio.toggleMusic()),
       onScreenChange: (screen) => this.screenChanged(screen),
       onTouchVisible: (visible) => this.input.setTouchVisible(visible),
     };
   }
 
+  private waitForContinue(): Promise<void> {
+    return new Promise((resolve) => {
+      const proceed = () => {
+        window.removeEventListener("keydown", proceed);
+        window.removeEventListener("pointerdown", proceed);
+        this.unlockAudio();
+        this.ui.hideLoading();
+        this.ui.showScreen("menu", false);
+        this.audio.setMenuMusic(true);
+        resolve();
+      };
+      window.addEventListener("keydown", proceed);
+      window.addEventListener("pointerdown", proceed);
+    });
+  }
+
+  private unlockAudio(): void {
+    if (this.audioUnlocked) return;
+    this.audioUnlocked = true;
+    this.audio.init();
+    this.audio.setVolume(this.settings.masterVolume);
+  }
+
   private bindGlobalEvents(): void {
     window.addEventListener("resize", this.resizeHandler);
     window.addEventListener("orientationchange", this.resizeHandler);
-    const unlock = () => {
-      if (this.audioUnlocked) return;
-      this.audioUnlocked = true;
-      this.audio.init();
-      this.audio.setVolume(this.settings.masterVolume);
-    };
+    const unlock = () => this.unlockAudio();
     document.addEventListener("pointerdown", unlock, { passive: true });
     document.addEventListener("keydown", unlock);
     document.addEventListener("visibilitychange", () => {
@@ -250,6 +269,7 @@ export class Game {
     this.ui.showScreen("lobby", false);
     this.menuPlane && (this.menuPlane.group.visible = false);
     this.audio.stopEngine();
+    this.audio.setMenuMusic(true);
     this.latestLobbyHost = "";
     void room;
   }
@@ -290,6 +310,7 @@ export class Game {
         this.ui.hideResults();
         this.ui.hidePause();
         this.input.setEnabled(false);
+        this.audio.setMenuMusic(true);
       }
     }
   }
@@ -332,6 +353,7 @@ export class Game {
     this.ui.hideScoreboard();
     this.audio.stopEngine();
     this.ui.showScreen("multiplayer", false);
+    this.audio.setMenuMusic(true);
     this.net.listRooms().catch(() => undefined);
   }
 
@@ -343,6 +365,7 @@ export class Game {
     this.paused = false;
     this.menuPlane && (this.menuPlane.group.visible = false);
     this.ui.enterGame();
+    this.audio.setMenuMusic(false);
     this.input.clear();
     this.input.setEnabled(true);
     const match = new OnlineMatch({
@@ -447,6 +470,7 @@ export class Game {
     this.ended = false;
     this.menuPlane && (this.menuPlane.group.visible = false);
     this.ui.enterGame();
+    this.audio.setMenuMusic(false);
     this.input.clear();
     this.input.setEnabled(true);
     const match = new LocalMatch(
@@ -539,6 +563,7 @@ export class Game {
     this.ui.hideHud();
     this.menuPlane && (this.menuPlane.group.visible = !this.net.joined);
     this.audio.stopEngine();
+    this.audio.setMenuMusic(true);
   }
 
   private leaveOnline(destination: "menu" | "multiplayer"): void {
@@ -562,6 +587,7 @@ export class Game {
       void room;
       this.refreshRooms();
     }
+    this.audio.setMenuMusic(true);
   }
 
   private endCurrentSession(): void {

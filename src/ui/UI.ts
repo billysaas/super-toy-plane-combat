@@ -73,6 +73,7 @@ export interface UIActions {
   onChatSend: (text: string) => void;
   onLobbyChatSend: (text: string) => void;
   onOpenChat: () => void;
+  onToggleMusic: () => void;
   onScreenChange: (screen: ScreenName) => void;
   onTouchVisible?: (visible: boolean) => void;
 }
@@ -125,6 +126,8 @@ export class UIManager {
     this.bindMenus();
     this.bindLobby();
     this.bindHud();
+    el("btn-music").addEventListener("click", () => this.actions?.onToggleMusic());
+    this.setMusicEnabled(true);
     this.syncSettingsControls();
     this.syncNames();
     this.updateHangarPreview();
@@ -187,11 +190,30 @@ export class UIManager {
     if (labelEl) labelEl.textContent = label.toUpperCase();
   }
 
+  showLoadingContinue(): void {
+    const prompt = el("loading-prompt");
+    prompt.textContent = this.isTouch ? "TOUCH THE SCREEN TO CONTINUE" : "PRESS ANY KEY TO CONTINUE";
+    prompt.classList.remove("hidden");
+  }
+
+  setMusicEnabled(enabled: boolean): void {
+    const button = el("btn-music");
+    button.classList.toggle("muted", !enabled);
+    button.setAttribute("aria-pressed", String(!enabled));
+    button.setAttribute("aria-label", enabled ? "Mute music" : "Play music");
+    button.title = enabled ? "Mute music" : "Play music";
+  }
+
+  setMusicToggleVisible(visible: boolean): void {
+    el("btn-music").classList.toggle("hidden", !visible);
+  }
+
   showScreen(screen: ScreenName, notify = true): void {
     this.currentScreen = screen;
     document.querySelectorAll<HTMLElement>(".screen").forEach((s) => s.classList.remove("active"));
     const target = document.getElementById(`${screen}-screen`);
     if (target) target.classList.add("active");
+    this.setMusicToggleVisible(true);
     if (screen !== "settings") this.settingsFromPause = false;
     if (notify) this.actions?.onScreenChange(screen);
   }
@@ -210,6 +232,7 @@ export class UIManager {
     el("results-screen").classList.add("hidden");
     el("scoreboard-overlay").classList.add("hidden");
     this.hideLeaveConfirm();
+    this.setMusicToggleVisible(false);
     el("hud").classList.remove("hidden");
     this.clearFeeds();
     this.lastKills = 0;
@@ -231,6 +254,7 @@ export class UIManager {
 
   showPause(): void {
     this.hideLeaveConfirm();
+    this.setMusicToggleVisible(false);
     el("pause-screen").classList.remove("hidden");
   }
 
@@ -268,6 +292,7 @@ export class UIManager {
 
   showResults(result: MatchResult): void {
     this.closeChat();
+    this.setMusicToggleVisible(false);
     const overlay = el("results-screen");
     overlay.classList.remove("hidden");
     el("results-kicker").textContent = result.draw ? "MISSION ENDED" : result.win ? "MISSION COMPLETE" : "MISSION FAILED";
@@ -813,6 +838,7 @@ export class UIManager {
   private returnFromPauseSettings(): void {
     document.querySelectorAll<HTMLElement>(".screen").forEach((s) => s.classList.remove("active"));
     this.currentScreen = "pause";
+    this.setMusicToggleVisible(false);
     el("pause-screen").classList.remove("hidden");
     this.settingsFromPause = false;
   }
