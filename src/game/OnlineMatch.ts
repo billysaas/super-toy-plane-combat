@@ -23,7 +23,7 @@ import {
   type Settings,
   type Team,
 } from "../../shared/config";
-import { integrateFlight } from "../../shared/flight";
+import { integrateFlight, reverseFlightDirection } from "../../shared/flight";
 import type { Controls, FlightState, InputPacket, PlaneRuntime } from "../../shared/types";
 import type { ActiveMatch } from "./ActiveMatch";
 import type { AssetStore } from "./AssetStore";
@@ -416,17 +416,12 @@ export class OnlineMatch implements ActiveMatch {
       f.x = sweep.position.x;
       f.y = sweep.position.y;
       f.z = sweep.position.z;
-      fwd.set(0, 0, -1).applyQuaternion(q.set(f.qx, f.qy, f.qz, f.qw));
-      const dot = fwd.dot(sweep.normal);
-      if (sweep.normal.lengthSq() > 0.01 && Math.abs(dot) > 0.05) {
-        const bounce = fwd.clone().addScaledVector(sweep.normal, -2 * dot).normalize();
-        const bounceQ = new Quaternion().setFromUnitVectors(fwd, bounce);
-        const nq = new Quaternion(f.qx, f.qy, f.qz, f.qw).premultiply(bounceQ).normalize();
-        f.qx = nq.x;
-        f.qy = nq.y;
-        f.qz = nq.z;
-        f.qw = nq.w;
+      if (sweep.normal.lengthSq() > 0.01) {
+        f.x += sweep.normal.x * 0.05;
+        f.y += sweep.normal.y * 0.05;
+        f.z += sweep.normal.z * 0.05;
       }
+      reverseFlightDirection(f);
       if (this.collisionCooldown <= 0) {
         this.collisionCooldown = 0.25;
         this.deps.effects.impact(sweep.position, sweep.normal);

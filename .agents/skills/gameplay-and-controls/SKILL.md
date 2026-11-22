@@ -14,6 +14,7 @@ user-invocable: false
 - The mobile stick multiplies vertical input by `settings.invertY`; keep this aligned with mouse steering.
 - `integrateFlight` applies a 2.1× turn assist, rising to 3.3× near minimum speed; turn radius shrinks continuously as speed drops and is about 50% tighter than the original baseline at maximum and boost speed.
 - Keep collision bounces, damage and respawn behavior consistent between local and online play.
+- World collisions push the plane clear and reverse its heading 180° without damage; keep local prediction, client play and the server simulation aligned.
 - The chase camera uses aspect-aware FOV and distance. Portrait gets a wider FOV and slightly farther camera; preserve that when tuning.
 
 ## Controls

@@ -86,6 +86,15 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
   state.z += localForward.z * state.speed * dt;
 }
 
+export function reverseFlightDirection(state: FlightState): void {
+  const q = new Quaternion(state.qx, state.qy, state.qz, state.qw);
+  q.multiply(new Quaternion().setFromAxisAngle(yAxis, Math.PI)).normalize();
+  state.qx = q.x;
+  state.qy = q.y;
+  state.qz = q.z;
+  state.qw = q.w;
+}
+
 export function respawnFlight(state: FlightState, x: number, y: number, z: number, yaw: number, def?: AircraftDef): void {
   const q = new Quaternion().setFromAxisAngle(yAxis, yaw);
   state.x = x;

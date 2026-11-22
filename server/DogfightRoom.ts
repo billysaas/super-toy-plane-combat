@@ -2,7 +2,7 @@ import { Client, Room, ServerError } from "@colyseus/core";
 import { Quaternion, Vector3 } from "three";
 import { DogfightState, PlayerState } from "./schema";
 import { AIRCRAFT, DEFAULT_AIRCRAFT, DEFAULT_THROTTLE, WORLD, clamp, getAircraft, type AircraftDef } from "../shared/config";
-import { createFlightState, integrateFlight, respawnFlight } from "../shared/flight";
+import { createFlightState, integrateFlight, respawnFlight, reverseFlightDirection } from "../shared/flight";
 import { distancePointSegmentSq, pointInsideAnyBox, raycastWorld, raySphere, sphereSweepWorld } from "../shared/collision";
 import { STATIC_BOXES, getSpawnForTeam } from "../shared/worldLayout";
 import type { Controls, FlightState, KillEvent } from "../shared/types";
@@ -344,21 +344,14 @@ export class DogfightRoom extends Room<DogfightState> {
         sim.flight.x = sweep.position.x;
         sim.flight.y = sweep.position.y;
         sim.flight.z = sweep.position.z;
-        fwd.set(0, 0, -1).applyQuaternion(q.set(sim.flight.qx, sim.flight.qy, sim.flight.qz, sim.flight.qw));
-        const dot = fwd.dot(sweep.normal);
-        if (sweep.normal.lengthSq() > 0.01 && Math.abs(dot) > 0.05) {
-          const bounced = fwd.clone().addScaledVector(sweep.normal, -2 * dot).normalize();
-          const bounceQ = new Quaternion().setFromUnitVectors(fwd, bounced);
-          const newQ = new Quaternion(sim.flight.qx, sim.flight.qy, sim.flight.qz, sim.flight.qw).premultiply(bounceQ).normalize();
-          sim.flight.qx = newQ.x;
-          sim.flight.qy = newQ.y;
-          sim.flight.qz = newQ.z;
-          sim.flight.qw = newQ.w;
+        if (sweep.normal.lengthSq() > 0.01) {
+          sim.flight.x += sweep.normal.x * 0.05;
+          sim.flight.y += sweep.normal.y * 0.05;
+          sim.flight.z += sweep.normal.z * 0.05;
         }
+        reverseFlightDirection(sim.flight);
         if (this.simTime >= sim.nextCollisionAt && speedBefore > 8) {
           sim.nextCollisionAt = this.simTime + 0.4;
-          sim.flight.speed = Math.max(8, speedBefore * 0.22);
-          this.applyDamage(sim, clamp(speedBefore * 0.32, 2, 22), null, "the furniture");
           this.broadcast("impact", { x: sweep.position.x, y: sweep.position.y, z: sweep.position.z, ownerId: sim.id });
         }
       }

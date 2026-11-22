@@ -17,7 +17,7 @@ import {
   type SoloConfig,
   type Team,
 } from "../../shared/config";
-import { createFlightState, integrateFlight, respawnFlight } from "../../shared/flight";
+import { createFlightState, integrateFlight, respawnFlight, reverseFlightDirection } from "../../shared/flight";
 import { distancePointSegmentSq, raySphere } from "../../shared/collision";
 import { getSpawnForTeam } from "../../shared/worldLayout";
 import type { Controls, KillEvent, PlaneRuntime } from "../../shared/types";
@@ -347,29 +347,18 @@ export class LocalMatch {
         p.runtime.flight.x = sweep.position.x;
         p.runtime.flight.y = sweep.position.y;
         p.runtime.flight.z = sweep.position.z;
-        fwd.set(0, 0, -1).applyQuaternion(q.set(p.runtime.flight.qx, p.runtime.flight.qy, p.runtime.flight.qz, p.runtime.flight.qw));
-        const dot = fwd.dot(sweep.normal);
-        if (sweep.normal.lengthSq() > 0.01 && Math.abs(dot) > 0.05) {
-          const bounced = fwd.clone().addScaledVector(sweep.normal, -2 * dot).normalize();
-          const bounceQ = new Quaternion().setFromUnitVectors(fwd, bounced);
-          const newQ = new Quaternion(p.runtime.flight.qx, p.runtime.flight.qy, p.runtime.flight.qz, p.runtime.flight.qw).premultiply(bounceQ).normalize();
-          p.runtime.flight.qx = newQ.x;
-          p.runtime.flight.qy = newQ.y;
-          p.runtime.flight.qz = newQ.z;
-          p.runtime.flight.qw = newQ.w;
+        if (sweep.normal.lengthSq() > 0.01) {
+          p.runtime.flight.x += sweep.normal.x * 0.05;
+          p.runtime.flight.y += sweep.normal.y * 0.05;
+          p.runtime.flight.z += sweep.normal.z * 0.05;
         }
+        reverseFlightDirection(p.runtime.flight);
         if (p.collisionCooldown <= 0 && speedBefore > 8) {
           p.collisionCooldown = 0.4;
-          p.runtime.flight.speed = Math.max(8, speedBefore * 0.22);
-          const amount = clamp(speedBefore * 0.32, 2, 22);
-          this.damage(p, amount, null, "the furniture");
           this.deps.effects.impact(sweep.position, sweep.normal);
-          this.deps.effects.explosion(sweep.position, 0.25);
-          if (Math.random() < 0.55) this.deps.effects.spawnDebris(sweep.position, this.deps.physics, 0.35, p.def.bodyColor);
           if (p === this.player) {
             this.deps.audio.collision();
             this.deps.camera.addShake(0.45);
-            this.damageFlash = 1;
           }
         }
       }
