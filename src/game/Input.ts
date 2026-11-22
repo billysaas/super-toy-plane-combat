@@ -1,4 +1,4 @@
-import { clamp, DEFAULT_SETTINGS, type Settings } from "../../shared/config";
+import { clamp, DEFAULT_SETTINGS, DEFAULT_THROTTLE, type Settings } from "../../shared/config";
 import type { Controls } from "../../shared/types";
 
 type Action = "camera" | "pause" | "chat" | "mute" | "scoreboard" | "resume";
@@ -16,7 +16,7 @@ export class InputManager {
   private fireMouse = false;
   private rocketMouse = false;
   private wheelDelta = 0;
-  private throttle = 0.7;
+  private throttle = DEFAULT_THROTTLE;
   private actions: Action[] = [];
   private touch = {
     active: false,
@@ -25,7 +25,7 @@ export class InputManager {
     fire: false,
     rocket: false,
     boost: false,
-    throttle: 70,
+    throttle: DEFAULT_THROTTLE * 100,
   };
   private stickPointer: number | null = null;
   private stickBase?: HTMLElement;

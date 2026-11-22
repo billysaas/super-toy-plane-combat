@@ -1,4 +1,4 @@
-import type { Team } from "./config";
+import { DEFAULT_THROTTLE, type Team } from "./config";
 
 export interface Controls {
   pitch: number;
@@ -14,7 +14,7 @@ export const NEUTRAL_CONTROLS: Controls = {
   pitch: 0,
   roll: 0,
   yaw: 0,
-  throttle: 0.7,
+  throttle: DEFAULT_THROTTLE,
   boost: false,
   fire: false,
   rocket: false,

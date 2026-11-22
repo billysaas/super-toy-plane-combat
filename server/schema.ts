@@ -16,7 +16,7 @@ export class PlayerState extends Schema {
   @type("number") qw = 1;
   @type("number") speed = 0;
   @type("number") boost = 100;
-  @type("number") throttle = 0.7;
+  @type("number") throttle = 0.25;
   @type("number") health = 100;
   @type("number") maxHealth = 100;
   @type("number") ammo = 320;

@@ -10,7 +10,7 @@ import {
 } from "three";
 import type { Room } from "colyseus.js";
 import { STATIC_BOXES } from "../../shared/worldLayout";
-import { AIRCRAFT, type Settings, type SoloConfig } from "../../shared/config";
+import { AIRCRAFT, DEFAULT_THROTTLE, type Settings, type SoloConfig } from "../../shared/config";
 import { AssetStore } from "./AssetStore";
 import { Environment } from "./Environment";
 import { PhysicsWorld } from "./PhysicsWorld";
@@ -415,7 +415,7 @@ export class Game {
       name: "MENU",
       team: "RAF",
       aircraftId: aircraft,
-      flight: { x: -24, y: 6.2, z: 8, qx: 0, qy: 0, qz: 0, qw: 1, speed: 30, boost: 100, throttle: 0.7 },
+      flight: { x: -24, y: 6.2, z: 8, qx: 0, qy: 0, qz: 0, qw: 1, speed: 18, boost: 100, throttle: DEFAULT_THROTTLE },
       health: 100, maxHealth: 100, ammo: 320, rockets: 4, alive: true, respawnAt: 0,
       invulnerableUntil: 0, fireCooldown: 0, rocketCooldown: 0, kills: 0, deaths: 0, score: 0, lastHitAt: 0, isBot: false,
     };
@@ -610,6 +610,7 @@ export class Game {
     const actions = this.input.consumeActions();
     for (const action of actions) {
       if (action === "pause") {
+        if (this.ui.dismissLeaveConfirm()) continue;
         if (!this.match) continue;
         if (this.paused) this.resume();
         else this.pause();

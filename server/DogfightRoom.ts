@@ -1,7 +1,7 @@
 import { Client, Room, ServerError } from "@colyseus/core";
 import { Quaternion, Vector3 } from "three";
 import { DogfightState, PlayerState } from "./schema";
-import { AIRCRAFT, DEFAULT_AIRCRAFT, WORLD, clamp, getAircraft, type AircraftDef } from "../shared/config";
+import { AIRCRAFT, DEFAULT_AIRCRAFT, DEFAULT_THROTTLE, WORLD, clamp, getAircraft, type AircraftDef } from "../shared/config";
 import { createFlightState, integrateFlight, respawnFlight } from "../shared/flight";
 import { distancePointSegmentSq, pointInsideAnyBox, raycastWorld, raySphere, sphereSweepWorld } from "../shared/collision";
 import { STATIC_BOXES, getSpawnForTeam } from "../shared/worldLayout";
@@ -153,7 +153,7 @@ export class DogfightRoom extends Room<DogfightState> {
     const aircraftId = validAircraft(options?.aircraft);
     const def = getAircraft(aircraftId);
     const spawn = getSpawnForTeam(team);
-    const flight = createFlightState(spawn.x, spawn.y, spawn.z, spawn.yaw);
+    const flight = createFlightState(spawn.x, spawn.y, spawn.z, spawn.yaw, def);
     const state = new PlayerState();
     state.name = name;
     state.team = team;
@@ -173,7 +173,7 @@ export class DogfightRoom extends Room<DogfightState> {
       state,
       def,
       flight,
-      controls: { pitch: 0, roll: 0, yaw: 0, throttle: 0.7, boost: false, fire: false, rocket: false },
+      controls: { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false },
       prevRocket: false,
       fireCooldown: 0,
       rocketCooldown: 0,
@@ -236,7 +236,7 @@ export class DogfightRoom extends Room<DogfightState> {
       pitch: clamp(Number(raw.pitch) || 0, -1, 1),
       roll: clamp(Number(raw.roll) || 0, -1, 1),
       yaw: clamp(Number(raw.yaw) || 0, -1, 1),
-      throttle: clamp(Number(raw.throttle) || 0.7, 0.15, 1),
+      throttle: clamp(Number(raw.throttle) || DEFAULT_THROTTLE, 0.15, 1),
       boost: Boolean(raw.boost),
       fire: Boolean(raw.fire),
       rocket: Boolean(raw.rocket),
@@ -286,7 +286,7 @@ export class DogfightRoom extends Room<DogfightState> {
 
   private respawnSim(sim: PlayerSim, initial = false): void {
     const spawn = this.findSpawn(sim.state.team);
-    respawnFlight(sim.flight, spawn.x, spawn.y, spawn.z, spawn.yaw);
+    respawnFlight(sim.flight, spawn.x, spawn.y, spawn.z, spawn.yaw, sim.def);
     sim.state.alive = true;
     sim.state.health = sim.def.maxHealth;
     sim.state.ammo = sim.def.gunAmmo;

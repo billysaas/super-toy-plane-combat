@@ -209,6 +209,7 @@ export class UIManager {
     el("pause-screen").classList.add("hidden");
     el("results-screen").classList.add("hidden");
     el("scoreboard-overlay").classList.add("hidden");
+    this.hideLeaveConfirm();
     el("hud").classList.remove("hidden");
     this.clearFeeds();
     this.lastKills = 0;
@@ -221,6 +222,7 @@ export class UIManager {
 
   hideHud(): void {
     this.closeChat();
+    this.hideLeaveConfirm();
     el("hud").classList.add("hidden");
     el("touch-ui").classList.add("hidden");
     this.actions?.onTouchVisible?.(false);
@@ -228,11 +230,31 @@ export class UIManager {
   }
 
   showPause(): void {
+    this.hideLeaveConfirm();
     el("pause-screen").classList.remove("hidden");
   }
 
   hidePause(): void {
     el("pause-screen").classList.add("hidden");
+    this.hideLeaveConfirm();
+  }
+
+  showLeaveConfirm(): void {
+    el("leave-confirm").classList.remove("hidden");
+  }
+
+  hideLeaveConfirm(): void {
+    el("leave-confirm").classList.add("hidden");
+  }
+
+  isLeaveConfirmOpen(): boolean {
+    return !el("leave-confirm").classList.contains("hidden");
+  }
+
+  dismissLeaveConfirm(): boolean {
+    if (!this.isLeaveConfirmOpen()) return false;
+    this.hideLeaveConfirm();
+    return true;
   }
 
   showScoreboard(rows: ScoreRow[], mode: GameMode): void {
@@ -932,7 +954,12 @@ export class UIManager {
   private bindHud(): void {
     el("btn-hud-menu").addEventListener("click", () => this.actions?.onPause());
     el("btn-resume").addEventListener("click", () => this.actions?.onResume());
-    el("btn-quit-match").addEventListener("click", () => this.actions?.onAbandon());
+    el("btn-quit-match").addEventListener("click", () => this.showLeaveConfirm());
+    el("btn-cancel-leave").addEventListener("click", () => this.hideLeaveConfirm());
+    el("btn-confirm-leave").addEventListener("click", () => {
+      this.hideLeaveConfirm();
+      this.actions?.onAbandon();
+    });
     el("btn-rematch").addEventListener("click", () => this.actions?.onRematch());
     el("btn-results-menu").addEventListener("click", () => this.actions?.onReturnMenu());
     document.getElementById("touch-chat")?.addEventListener("click", () => this.actions?.onOpenChat());

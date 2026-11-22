@@ -4,6 +4,7 @@ import {
   BOT_NAMES_AXIS,
   BOT_NAMES_RAF,
   DEFAULT_SOLO,
+  DEFAULT_THROTTLE,
   DIFFICULTY_INFO,
   TEAM_INFO,
   WORLD,
@@ -189,7 +190,7 @@ export class LocalMatch {
     this.config = { ...config };
     this.cameraMode = deps.settings.camera;
     this.deps.camera.setMode(this.cameraMode);
-    this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: 0.7, boost: false, fire: false, rocket: false };
+    this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false };
     this.spawnPlanes();
     this.deps.audio.startEngine();
     this.deps.camera.snapTo(this.player.runtime);
@@ -200,7 +201,6 @@ export class LocalMatch {
   private spawnPlanes(): void {
     const def = getAircraft(this.config.aircraftId);
     this.player = this.createPlane("player", this.deps.playerName, "RAF", def, false, -31, 8.5, 27, 0.06);
-    this.player.runtime.flight.speed = 30;
     this.planes.push(this.player);
     const axisNames = [...BOT_NAMES_AXIS].sort(() => Math.random() - 0.5);
     const rafNames = [...BOT_NAMES_RAF].sort(() => Math.random() - 0.5);
@@ -228,7 +228,7 @@ export class LocalMatch {
     z: number,
     yaw: number,
   ): LocalPlane {
-    const flight = createFlightState(x, y, z, yaw);
+    const flight = createFlightState(x, y, z, yaw, def);
     const runtime: PlaneRuntime = {
       id,
       name,
@@ -255,7 +255,7 @@ export class LocalMatch {
     view.group.quaternion.set(flight.qx, flight.qy, flight.qz, flight.qw);
     this.deps.scene.add(view.group);
     view.sync(runtime, 0, false);
-    const controls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: 0.7, boost: false, fire: false, rocket: false };
+    const controls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false };
     return {
       runtime,
       def,
@@ -644,7 +644,7 @@ export class LocalMatch {
 
   private respawn(p: LocalPlane): void {
     const spawn = getSpawnForTeam(p.runtime.team === "RAF" ? "RAF" : "AXIS");
-    respawnFlight(p.runtime.flight, spawn.x, spawn.y, spawn.z, spawn.yaw);
+    respawnFlight(p.runtime.flight, spawn.x, spawn.y, spawn.z, spawn.yaw, p.def);
     p.runtime.health = p.runtime.maxHealth;
     p.runtime.ammo = p.def.gunAmmo;
     p.runtime.rockets = p.def.rocketAmmo;

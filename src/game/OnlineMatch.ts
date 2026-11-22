@@ -12,6 +12,7 @@ import {
 } from "three";
 import {
   AIRCRAFT,
+  DEFAULT_THROTTLE,
   TEAM_INFO,
   WORLD,
   clamp,
@@ -173,8 +174,8 @@ export class OnlineMatch implements ActiveMatch {
   private planes = new Map<string, OnlinePlane>();
   private local!: OnlinePlane;
   private localSnapshot?: Snapshot;
-  private localControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: 0.7, boost: false, fire: false, rocket: false };
-  private lastControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: 0.7, boost: false, fire: false, rocket: false };
+  private localControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false };
+  private lastControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false };
   private seq = 0;
   private sendAccumulator = 0;
   private cameraMode: CameraMode;

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "three";
 import type { AircraftDef } from "./config";
-import { clamp } from "./config";
+import { clamp, DEFAULT_THROTTLE } from "./config";
 import type { Controls, FlightState } from "./types";
 
 const localForward = new Vector3();
@@ -9,14 +9,18 @@ const dq = new Quaternion();
 const yAxis = new Vector3(0, 1, 0);
 const rightVec = new Vector3();
 
-export function createFlightState(x: number, y: number, z: number, yaw: number): FlightState {
+function cruiseSpeed(def: AircraftDef): number {
+  return def.minSpeed + (def.maxSpeed - def.minSpeed) * DEFAULT_THROTTLE;
+}
+
+export function createFlightState(x: number, y: number, z: number, yaw: number, def?: AircraftDef): FlightState {
   const q = new Quaternion().setFromAxisAngle(yAxis, yaw);
   return {
     x, y, z,
     qx: q.x, qy: q.y, qz: q.z, qw: q.w,
-    speed: 35,
+    speed: def ? cruiseSpeed(def) : 25,
     boost: 100,
-    throttle: 0.7,
+    throttle: DEFAULT_THROTTLE,
   };
 }
 
@@ -82,7 +86,7 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
   state.z += localForward.z * state.speed * dt;
 }
 
-export function respawnFlight(state: FlightState, x: number, y: number, z: number, yaw: number): void {
+export function respawnFlight(state: FlightState, x: number, y: number, z: number, yaw: number, def?: AircraftDef): void {
   const q = new Quaternion().setFromAxisAngle(yAxis, yaw);
   state.x = x;
   state.y = y;
@@ -91,7 +95,7 @@ export function respawnFlight(state: FlightState, x: number, y: number, z: numbe
   state.qy = q.y;
   state.qz = q.z;
   state.qw = q.w;
-  state.speed = 30;
+  state.speed = def ? cruiseSpeed(def) : 25;
   state.boost = 100;
-  state.throttle = 0.7;
+  state.throttle = DEFAULT_THROTTLE;
 }
