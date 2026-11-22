@@ -38,7 +38,7 @@ export const AIRCRAFT: AircraftDef[] = [
     trailColor: 0xd8f0d0,
     maxHealth: 110,
     minSpeed: 15,
-    maxSpeed: 23.5,
+    maxSpeed: 17.125,
     boostSpeed: 34,
     acceleration: 24,
     pitchRate: 1.65,
@@ -60,7 +60,7 @@ export const AIRCRAFT: AircraftDef[] = [
     trailColor: 0xb7defa,
     maxHealth: 88,
     minSpeed: 16,
-    maxSpeed: 25.5,
+    maxSpeed: 18.375,
     boostSpeed: 38,
     acceleration: 29,
     pitchRate: 1.92,
@@ -82,7 +82,7 @@ export const AIRCRAFT: AircraftDef[] = [
     trailColor: 0xffa898,
     maxHealth: 96,
     minSpeed: 17,
-    maxSpeed: 28,
+    maxSpeed: 19.75,
     boostSpeed: 42,
     acceleration: 30,
     pitchRate: 1.72,
@@ -104,7 +104,7 @@ export const AIRCRAFT: AircraftDef[] = [
     trailColor: 0xffe19b,
     maxHealth: 145,
     minSpeed: 13,
-    maxSpeed: 21.5,
+    maxSpeed: 15.125,
     boostSpeed: 30.5,
     acceleration: 20,
     pitchRate: 1.42,
@@ -165,7 +165,7 @@ export const LOADOUT = {
   rocketAmmo: 4,
 };
 
-export const DEFAULT_THROTTLE = 0.25;
+export const DEFAULT_THROTTLE = 0.5;
 
 export const MOUSE_SENSITIVITY_DEFAULT = 1;
 export const RADAR_RANGE = 115;
