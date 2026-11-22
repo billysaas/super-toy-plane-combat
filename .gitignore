@@ -9,3 +9,5 @@ dist-server/
 coverage/
 test-results/
 playwright-report/
+
+.worktrees/
