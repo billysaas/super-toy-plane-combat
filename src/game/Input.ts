@@ -3,6 +3,8 @@ import type { Controls } from "../../shared/types";
 
 type Action = "camera" | "pause" | "chat" | "mute" | "scoreboard" | "resume";
 
+const TOUCH_TURN_AUTHORITY = 0.5;
+
 export class InputManager {
   private canvas: HTMLCanvasElement;
   private keys = new Set<string>();
@@ -317,8 +319,8 @@ export class InputManager {
     if (k.has("KeyD") || k.has("ArrowRight")) keyboardRoll += 0.9;
     if (k.has("KeyQ")) keyboardYaw -= 0.8;
     if (k.has("KeyE")) keyboardYaw += 0.8;
-    const touchPitchTarget = this.touch.active ? this.gentleStick(this.touch.pitch) : 0;
-    const touchRollTarget = this.touch.active ? this.gentleStick(this.touch.roll) : 0;
+    const touchPitchTarget = this.touch.active ? this.gentleStick(this.touch.pitch) * TOUCH_TURN_AUTHORITY : 0;
+    const touchRollTarget = this.touch.active ? this.gentleStick(this.touch.roll) * TOUCH_TURN_AUTHORITY : 0;
     keyboardPitch += this.smoothTouchAxis(touchPitchTarget, dt, true);
     keyboardRoll += this.smoothTouchAxis(touchRollTarget, dt, false);
     let throttle = this.throttle;
