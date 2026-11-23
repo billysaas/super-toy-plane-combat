@@ -32,6 +32,7 @@ const up = new Vector3();
 const temp = new Vector3();
 const bestDir = new Vector3();
 const startDir = new Vector3();
+const breakAway = new Vector3();
 
 function rotateToward(base: Vector3, axis: Vector3, angle: number): Vector3 {
   return temp.copy(base).applyAxisAngle(axis, angle);
@@ -50,6 +51,10 @@ export class BotPilot {
   private jinkDir = 1;
   private fireBurst = 0;
   private burstRest = 0;
+  private passPhase: "attack" | "extend" = "attack";
+  private passTimer = 0;
+  private breakDir = new Vector3(0, 0, -1);
+  private aimedAtTarget = false;
 
   constructor(difficulty: Difficulty, mode: GameMode, seed = Math.random() * 10000) {
     this.difficulty = difficulty;
@@ -66,6 +71,10 @@ export class BotPilot {
     this.jinkTimer = 0;
     this.burstRest = 0;
     this.fireBurst = 0;
+    this.passPhase = "attack";
+    this.passTimer = 0;
+    this.breakDir.set(0, 0, -1);
+    this.aimedAtTarget = false;
   }
 
   get accuracy(): number {
@@ -88,6 +97,7 @@ export class BotPilot {
     up.set(0, 1, 0).applyQuaternion(q);
 
     const enemies = planes.filter((p) => p.alive && p.id !== self.id && (this.mode === "ffa" || p.team !== self.team));
+    const previousTargetId = this.targetId;
     if (this.reactionTimer <= 0) {
       this.reactionTimer = Math.max(0.18, skill.reaction * (0.8 + Math.random() * 0.5));
       let best: AIWorldPlane | null = null;
@@ -104,6 +114,11 @@ export class BotPilot {
         }
       }
       this.targetId = best?.id ?? null;
+    }
+    if (this.targetId !== previousTargetId) {
+      this.passPhase = "attack";
+      this.passTimer = 0;
+      this.aimedAtTarget = false;
     }
     const target = enemies.find((p) => p.id === this.targetId) ?? null;
 
@@ -130,8 +145,42 @@ export class BotPilot {
     const dangerForward = raycastWorld(position, forward, 42, STATIC_BOXES);
     const forwardClear = dangerForward?.distance ?? 46;
 
+    const aim = target ? forward.dot(toTarget) : 0;
+    if (!target) {
+      this.passPhase = "attack";
+      this.passTimer = 0;
+      this.aimedAtTarget = false;
+    } else if (this.passPhase === "attack") {
+      if (targetVisible && aim > 0.9) this.aimedAtTarget = true;
+      const overshoot = this.aimedAtTarget && aim < 0.2 && targetDist < 50;
+      if (overshoot || targetDist < 9) {
+        this.passPhase = "extend";
+        this.passTimer = 3.2 + Math.random() * 2;
+        this.breakDir.copy(forward);
+        this.aimedAtTarget = false;
+      }
+    } else {
+      this.passTimer -= dt;
+      breakAway.copy(position).sub(targetPoint);
+      if (breakAway.lengthSq() < 0.001) breakAway.copy(forward);
+      breakAway.y = clamp(breakAway.y, -0.35, 0.5);
+      breakAway.normalize();
+      const awayWeight = targetDist < 18 ? 0.5 : 0.3;
+      this.breakDir.copy(forward).multiplyScalar(1 - awayWeight).addScaledVector(breakAway, awayWeight).normalize();
+      if (targetDist > 55 || (this.passTimer <= 0 && targetDist > 24) || this.passTimer <= -3) {
+        this.passPhase = "attack";
+        this.aimedAtTarget = false;
+      }
+    }
+
     const candidates: Vector3[] = [];
-    candidates.push(targetVisible ? toTarget : forward);
+    if (this.passPhase === "extend") {
+      candidates.push(this.breakDir);
+      candidates.push(rotateToward(this.breakDir, up, 0.5).clone());
+      candidates.push(rotateToward(this.breakDir, up, -0.5).clone());
+    } else {
+      candidates.push(targetVisible ? toTarget : forward);
+    }
     candidates.push(forward);
     candidates.push(rotateToward(forward, up, 0.55).clone());
     candidates.push(rotateToward(forward, up, -0.55).clone());
@@ -152,7 +201,8 @@ export class BotPilot {
       const alignTarget = dir.dot(toTarget);
       const alignForward = dir.dot(forward);
       let score = Math.min(34, clearance) + alignForward * 2.5;
-      score += alignTarget * (targetVisible ? 24 : 8);
+      if (this.passPhase === "extend") score += dir.dot(this.breakDir) * 26;
+      else score += alignTarget * (targetVisible ? 24 : 8);
       if (hit && hit.distance < 8) score -= 90;
       else if (hit && hit.distance < 16) score -= 24;
       if (dir.y < -0.1 && f.y < 6) score -= 22;
@@ -191,7 +241,7 @@ export class BotPilot {
       desired.applyAxisAngle(up, this.jinkDir * 0.25);
       desired.normalize();
     }
-    if (targetVisible && forwardClear > 20 && targetDist > 4) {
+    if (targetVisible && forwardClear > 20 && targetDist > 4 && this.passPhase === "attack") {
       desired.lerp(toTarget, 0.72).normalize();
     }
 
@@ -215,19 +265,21 @@ export class BotPilot {
       pitch = clamp(pitch + Math.sin(this.seed * 0.7) * 0.25, -0.8, 0.82);
     }
 
-    let throttle = 0.66;
-    if (targetDist > 75 && forwardClear > 28) throttle = 0.9;
-    if (targetDist < 16) throttle = 0.5;
+    let throttle = this.passPhase === "extend" ? 1 : 0.85;
+    if (targetDist > 40 && forwardClear > 28) throttle = 0.95;
+    if (this.passPhase === "attack" && targetDist < 16) throttle = 0.72;
     if (forwardClear < 24) throttle = 0.38;
     if (forwardClear < 12) throttle = 0.28;
     if (f.speed < 5.7) throttle = 1;
-    const boosting = targetDist > 100 && forwardClear > 36 && this.jinkTimer <= 0 && f.boost > 25;
+    const boosting = forwardClear > 30 && (
+      (this.passPhase === "extend" && f.boost > 30) ||
+      (targetDist > 100 && this.jinkTimer <= 0 && f.boost > 25)
+    );
 
-    const aim = target ? forward.dot(toTarget) : 0;
     let fire = false;
     let rocket = false;
-    if (target && targetVisible && forwardClear > 8 && targetDist < 110) {
-      const aimWindow = 0.984 - (1 - skill.accuracy) * 0.045;
+    if (target && targetVisible && forwardClear > 8 && targetDist < 110 && this.passPhase === "attack") {
+      const aimWindow = 0.984 - (1 - skill.accuracy) * 0.045 - (targetDist < 26 ? 0.02 : 0);
       if (aim > aimWindow) {
         if (this.burstRest <= 0 && this.fireBurst <= 0) {
           this.fireBurst = 0.7 + Math.random() * 0.8;
