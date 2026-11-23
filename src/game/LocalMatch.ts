@@ -353,7 +353,7 @@ export class LocalMatch {
           p.runtime.flight.z += sweep.normal.z * 0.05;
         }
         reverseFlightDirection(p.runtime.flight);
-        if (p.collisionCooldown <= 0 && speedBefore > 8) {
+        if (p.collisionCooldown <= 0 && speedBefore > 2.4) {
           p.collisionCooldown = 0.4;
           this.deps.effects.impact(sweep.position, sweep.normal);
           if (p === this.player) {

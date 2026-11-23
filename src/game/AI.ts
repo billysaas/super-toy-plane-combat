@@ -220,7 +220,7 @@ export class BotPilot {
     if (targetDist < 16) throttle = 0.5;
     if (forwardClear < 24) throttle = 0.38;
     if (forwardClear < 12) throttle = 0.28;
-    if (f.speed < 19) throttle = 1;
+    if (f.speed < 5.7) throttle = 1;
     const boosting = targetDist > 100 && forwardClear > 36 && this.jinkTimer <= 0 && f.boost > 25;
 
     const aim = target ? forward.dot(toTarget) : 0;

@@ -49,7 +49,7 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
   const targetSpeed = def.minSpeed + (def.maxSpeed - def.minSpeed) * throttle + (boosting ? def.boostSpeed - def.maxSpeed : 0);
   const turnLoad = Math.abs(pitch) * 0.09 + Math.abs(roll) * 0.03 + Math.abs(yaw) * 0.035;
   const diff = targetSpeed - state.speed;
-  state.speed = clamp(state.speed + clamp(diff, -def.acceleration * dt, def.acceleration * dt) - state.speed * turnLoad * dt, 4, def.boostSpeed * 1.08);
+  state.speed = clamp(state.speed + clamp(diff, -def.acceleration * dt, def.acceleration * dt) - state.speed * turnLoad * dt, 1.2, def.boostSpeed * 1.08);
 
   const speedFactor = clamp(state.speed / def.maxSpeed, 0.38, 1.3);
   const lowSpeed = 1 - clamp(state.speed / def.maxSpeed, 0, 1);

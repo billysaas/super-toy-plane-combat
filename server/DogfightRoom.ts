@@ -350,7 +350,7 @@ export class DogfightRoom extends Room<DogfightState> {
           sim.flight.z += sweep.normal.z * 0.05;
         }
         reverseFlightDirection(sim.flight);
-        if (this.simTime >= sim.nextCollisionAt && speedBefore > 8) {
+        if (this.simTime >= sim.nextCollisionAt && speedBefore > 2.4) {
           sim.nextCollisionAt = this.simTime + 0.4;
           this.broadcast("impact", { x: sweep.position.x, y: sweep.position.y, z: sweep.position.z, ownerId: sim.id });
         }
