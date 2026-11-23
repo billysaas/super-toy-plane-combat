@@ -8,6 +8,7 @@ export interface Controls {
   boost: boolean;
   fire: boolean;
   rocket: boolean;
+  autoLevel: boolean;
 }
 
 export const NEUTRAL_CONTROLS: Controls = {
@@ -18,6 +19,7 @@ export const NEUTRAL_CONTROLS: Controls = {
   boost: false,
   fire: false,
   rocket: false,
+  autoLevel: true,
 };
 
 export interface FlightState {
@@ -121,4 +123,5 @@ export interface InputPacket {
   boost: boolean;
   fire: boolean;
   rocket: boolean;
+  autoLevel: boolean;
 }

@@ -174,8 +174,8 @@ export class OnlineMatch implements ActiveMatch {
   private planes = new Map<string, OnlinePlane>();
   private local!: OnlinePlane;
   private localSnapshot?: Snapshot;
-  private localControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false };
-  private lastControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false };
+  private localControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevel: false };
+  private lastControls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevel: false };
   private seq = 0;
   private sendAccumulator = 0;
   private cameraMode: CameraMode;
@@ -407,6 +407,7 @@ export class OnlineMatch implements ActiveMatch {
     this.lastControls.boost = raw.boost;
     this.lastControls.fire = raw.fire;
     this.lastControls.rocket = raw.rocket;
+    this.lastControls.autoLevel = raw.autoLevel;
     this.localControls = { ...this.lastControls };
     const f = this.local.runtime.flight;
     const old = new Vector3(f.x, f.y, f.z);
@@ -473,6 +474,7 @@ export class OnlineMatch implements ActiveMatch {
         boost: this.localControls.boost,
         fire: this.localControls.fire,
         rocket: this.localControls.rocket,
+        autoLevel: this.localControls.autoLevel,
       };
       this.deps.room.send("input", packet);
     }

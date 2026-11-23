@@ -8,6 +8,8 @@ const axis = new Vector3();
 const dq = new Quaternion();
 const yAxis = new Vector3(0, 1, 0);
 const rightVec = new Vector3();
+const upVec = new Vector3();
+const LEVEL_ROLL_GAIN = 0.5;
 
 function cruiseSpeed(def: AircraftDef): number {
   return def.minSpeed + (def.maxSpeed - def.minSpeed) * DEFAULT_THROTTLE;
@@ -63,7 +65,16 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
     axis.set(1, 0, 0);
     q.multiply(dq.setFromAxisAngle(axis, pitch * pitchRate * dt));
   }
-  if (Math.abs(roll) > 0.001) {
+  if (controls.autoLevel) {
+    rightVec.set(1, 0, 0).applyQuaternion(q);
+    upVec.set(0, 1, 0).applyQuaternion(q);
+    const bank = Math.atan2(rightVec.y, upVec.y);
+    const levelRoll = clamp(bank * LEVEL_ROLL_GAIN, -1, 1);
+    if (Math.abs(levelRoll) > 0.001) {
+      axis.set(0, 0, 1);
+      q.multiply(dq.setFromAxisAngle(axis, -levelRoll * rollRate * dt));
+    }
+  } else if (Math.abs(roll) > 0.001) {
     axis.set(0, 0, 1);
     q.multiply(dq.setFromAxisAngle(axis, -roll * rollRate * dt));
   }

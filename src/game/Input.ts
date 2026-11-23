@@ -306,7 +306,7 @@ export class InputManager {
 
   getControls(dt: number): Controls {
     const k = this.keys;
-    if (!this.enabled) return { pitch: 0, roll: 0, yaw: 0, throttle: this.throttle, boost: false, fire: false, rocket: false };
+    if (!this.enabled) return { pitch: 0, roll: 0, yaw: 0, throttle: this.throttle, boost: false, fire: false, rocket: false, autoLevel: true };
     const mouseDecay = Math.exp(-dt * 3.4);
     this.mouseSteerX *= mouseDecay;
     this.mouseSteerY *= mouseDecay;
@@ -333,6 +333,10 @@ export class InputManager {
     const mouseY = this.pointerLocked ? this.mouseSteerY : 0;
     const pitch = clamp(keyboardPitch + mouseY * 1.1, -1, 1);
     const roll = clamp(keyboardRoll + mouseX * 1.1, -1, 1);
+    const rollIntent =
+      k.has("KeyA") || k.has("ArrowLeft") || k.has("KeyD") || k.has("ArrowRight") ||
+      (this.touch.active && Math.abs(this.touch.roll) > 0.06) ||
+      (this.pointerLocked && Math.abs(this.mouseSteerX) > 0.02);
     return {
       pitch,
       roll,
@@ -341,6 +345,7 @@ export class InputManager {
       boost: k.has("ShiftLeft") || k.has("ShiftRight") || (this.touch.active && this.touch.boost),
       fire: k.has("Space") || this.fireMouse || (this.touch.active && this.touch.fire),
       rocket: k.has("KeyR") || this.rocketMouse || (this.touch.active && this.touch.rocket),
+      autoLevel: !rollIntent,
     };
   }
 

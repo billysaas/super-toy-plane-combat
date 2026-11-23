@@ -255,6 +255,7 @@ export class BotPilot {
       boost: boosting,
       fire,
       rocket,
+      autoLevel: false,
     };
   }
 
