@@ -79,7 +79,7 @@ export class CameraRig {
     this.camera.updateProjectionMatrix();
   }
 
-  update(dt: number, plane: PlaneRuntime, speedRatio: number, boosting: boolean, aspect: number): void {
+  update(dt: number, plane: PlaneRuntime, speedRatio: number, boosting: boolean, aspect: number, firing = false): void {
     this.camera.aspect = aspect;
     const f = plane.flight;
     const q = tempQ.set(f.qx, f.qy, f.qz, f.qw);
@@ -87,8 +87,9 @@ export class CameraRig {
     right.set(1, 0, 0).applyQuaternion(q);
     up.set(0, 1, 0).applyQuaternion(q);
     const portraitBoost = aspect < 0.8 ? 8 : 0;
-    const targetFov = (boosting ? 84 : this.mode === "cockpit" ? 76 : 72) + portraitBoost;
-    this.fov = MathUtils.damp(this.fov, targetFov, 4, dt);
+    const baseFov = (boosting ? 84 : this.mode === "cockpit" ? 76 : 72) + portraitBoost;
+    const targetFov = baseFov - (firing ? 6 : 0);
+    this.fov = MathUtils.damp(this.fov, targetFov, firing ? 7 : 3.6, dt);
     this.camera.fov = this.fov;
     this.camera.updateProjectionMatrix();
 

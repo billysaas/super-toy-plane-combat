@@ -351,7 +351,8 @@ export class OnlineMatch implements ActiveMatch {
         this.deps.callbacks.onSpawn();
       }
       this.stepLocal(dt, localSnap);
-      this.deps.camera.update(dt, this.local.runtime, this.local.runtime.flight.speed / this.local.def.boostSpeed, this.localControls.boost, this.deps.camera.camera.aspect);
+      const firing = this.localControls.fire || this.localControls.rocket;
+      this.deps.camera.update(dt, this.local.runtime, this.local.runtime.flight.speed / this.local.def.boostSpeed, this.localControls.boost, this.deps.camera.camera.aspect, firing);
     } else {
       if (this.lastAlive) {
         this.lastAlive = false;

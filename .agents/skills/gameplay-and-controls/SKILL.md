@@ -12,6 +12,8 @@ user-invocable: false
 
 - Inverted pitch means mouse down and joystick down both pitch the nose up.
 - The mobile stick multiplies vertical input by `settings.invertY`; keep this aligned with mouse steering.
+- The mobile stick applies a centre deadzone, a soft expo response and a slow ramp so small joystick movements trim the aircraft gently, flight-sim style. Release eases the controls back to centre instead of snapping.
+- The chase and cockpit cameras zoom in by 6° while the local player fires guns or rockets.
 - `integrateFlight` applies a 2.1× turn assist, rising to 3.3× near minimum speed; turn radius shrinks continuously as speed drops and is about 50% tighter than the original baseline at maximum and boost speed.
 - Keep collision bounces, damage and respawn behavior consistent between local and online play.
 - World collisions push the plane clear and reverse its heading 180° without damage; keep local prediction, client play and the server simulation aligned.

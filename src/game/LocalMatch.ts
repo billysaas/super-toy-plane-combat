@@ -665,7 +665,8 @@ export class LocalMatch {
       return;
     }
     const speedRatio = this.player.runtime.flight.speed / this.player.def.boostSpeed;
-    this.deps.camera.update(dt, this.player.runtime, speedRatio, this.player.controls.boost, this.deps.camera.camera.aspect);
+    const firing = this.player.controls.fire || this.player.controls.rocket;
+    this.deps.camera.update(dt, this.player.runtime, speedRatio, this.player.controls.boost, this.deps.camera.camera.aspect, firing);
     this.player.view.setCockpitHidden(this.cameraMode === "cockpit");
   }
 

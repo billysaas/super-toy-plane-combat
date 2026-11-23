@@ -30,6 +30,8 @@ export class InputManager {
   private stickPointer: number | null = null;
   private stickBase?: HTMLElement;
   private stickKnob?: HTMLElement;
+  private touchSteerPitch = 0;
+  private touchSteerRoll = 0;
   private isTouchDevice = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
   private scoreboardHeld = false;
   private listeners: Array<() => void> = [];
@@ -206,6 +208,14 @@ export class InputManager {
     }
   }
 
+  private gentleStick(value: number): number {
+    const magnitude = Math.abs(value);
+    const deadzone = 0.06;
+    if (magnitude <= deadzone) return 0;
+    const travel = (magnitude - deadzone) / (1 - deadzone);
+    return Math.sign(value) * Math.pow(travel, 1.7);
+  }
+
   setSettings(settings: Settings): void {
     this.settings = { ...settings };
   }
@@ -263,6 +273,8 @@ export class InputManager {
     this.touch.boost = false;
     this.touch.pitch = 0;
     this.touch.roll = 0;
+    this.touchSteerPitch = 0;
+    this.touchSteerRoll = 0;
     this.mouseSteerX = 0;
     this.mouseSteerY = 0;
     this.actions = [];
@@ -283,8 +295,13 @@ export class InputManager {
     if (k.has("KeyD") || k.has("ArrowRight")) keyboardRoll += 0.9;
     if (k.has("KeyQ")) keyboardYaw -= 0.8;
     if (k.has("KeyE")) keyboardYaw += 0.8;
-    keyboardPitch += this.touch.active ? this.touch.pitch : 0;
-    keyboardRoll += this.touch.active ? this.touch.roll : 0;
+    const touchBlend = 1 - Math.exp(-dt * 4.4);
+    const touchPitchTarget = this.touch.active ? this.gentleStick(this.touch.pitch) : 0;
+    const touchRollTarget = this.touch.active ? this.gentleStick(this.touch.roll) : 0;
+    this.touchSteerPitch += (touchPitchTarget - this.touchSteerPitch) * touchBlend;
+    this.touchSteerRoll += (touchRollTarget - this.touchSteerRoll) * touchBlend;
+    keyboardPitch += this.touchSteerPitch;
+    keyboardRoll += this.touchSteerRoll;
     let throttle = this.throttle;
     if (k.has("KeyX")) throttle += 0.55 * dt;
     if (k.has("KeyZ")) throttle -= 0.55 * dt;
