@@ -10,6 +10,7 @@ const yAxis = new Vector3(0, 1, 0);
 const rightVec = new Vector3();
 const upVec = new Vector3();
 const LEVEL_ROLL_GAIN = 0.5;
+const LEVEL_PITCH_GAIN = 0.5;
 
 function cruiseSpeed(def: AircraftDef): number {
   return def.minSpeed + (def.maxSpeed - def.minSpeed) * DEFAULT_THROTTLE;
@@ -61,11 +62,19 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
   const rollRate = def.rollRate * clamp(speedFactor, 0.55, 1.2) * (1.3 + lowSpeed * 0.6);
   const yawRate = def.yawRate * speedFactor * turnAssist;
 
-  if (Math.abs(pitch) > 0.001) {
+  if (controls.autoLevelPitch) {
+    localForward.set(0, 0, -1).applyQuaternion(q);
+    const climb = Math.asin(clamp(localForward.y, -1, 1));
+    const levelPitch = clamp(-climb * LEVEL_PITCH_GAIN, -1, 1);
+    if (Math.abs(levelPitch) > 0.001) {
+      axis.set(1, 0, 0);
+      q.multiply(dq.setFromAxisAngle(axis, levelPitch * pitchRate * dt));
+    }
+  } else if (Math.abs(pitch) > 0.001) {
     axis.set(1, 0, 0);
     q.multiply(dq.setFromAxisAngle(axis, pitch * pitchRate * dt));
   }
-  if (controls.autoLevel) {
+  if (controls.autoLevelRoll) {
     rightVec.set(1, 0, 0).applyQuaternion(q);
     upVec.set(0, 1, 0).applyQuaternion(q);
     const bank = Math.atan2(rightVec.y, upVec.y);

@@ -173,7 +173,7 @@ export class DogfightRoom extends Room<DogfightState> {
       state,
       def,
       flight,
-      controls: { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevel: true },
+      controls: { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevelRoll: true, autoLevelPitch: true },
       prevRocket: false,
       fireCooldown: 0,
       rocketCooldown: 0,
@@ -240,7 +240,8 @@ export class DogfightRoom extends Room<DogfightState> {
       boost: Boolean(raw.boost),
       fire: Boolean(raw.fire),
       rocket: Boolean(raw.rocket),
-      autoLevel: Boolean(raw.autoLevel),
+      autoLevelRoll: Boolean(raw.autoLevelRoll),
+      autoLevelPitch: Boolean(raw.autoLevelPitch),
     };
   }
 
@@ -300,7 +301,8 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.lastHitAt = -100;
     sim.controls.fire = false;
     sim.controls.rocket = false;
-    sim.controls.autoLevel = true;
+    sim.controls.autoLevelRoll = true;
+    sim.controls.autoLevelPitch = true;
     sim.prevRocket = true;
     this.syncState(sim);
     if (!initial) this.broadcast("respawn", { id: sim.id });
@@ -334,7 +336,8 @@ export class DogfightRoom extends Room<DogfightState> {
         sim.controls.fire = false;
         sim.controls.rocket = false;
         sim.controls.throttle = 0.55;
-        sim.controls.autoLevel = true;
+        sim.controls.autoLevelRoll = true;
+        sim.controls.autoLevelPitch = true;
       }
       sim.fireCooldown = Math.max(0, sim.fireCooldown - dt);
       sim.rocketCooldown = Math.max(0, sim.rocketCooldown - dt);

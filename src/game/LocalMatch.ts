@@ -190,7 +190,7 @@ export class LocalMatch {
     this.config = { ...config };
     this.cameraMode = deps.settings.camera;
     this.deps.camera.setMode(this.cameraMode);
-    this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevel: false };
+    this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevelRoll: false, autoLevelPitch: false };
     this.spawnPlanes();
     this.deps.audio.startEngine();
     this.deps.camera.snapTo(this.player.runtime);
@@ -255,7 +255,7 @@ export class LocalMatch {
     view.group.quaternion.set(flight.qx, flight.qy, flight.qz, flight.qw);
     this.deps.scene.add(view.group);
     view.sync(runtime, 0, false);
-    const controls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevel: false };
+    const controls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevelRoll: false, autoLevelPitch: false };
     return {
       runtime,
       def,
@@ -284,7 +284,8 @@ export class LocalMatch {
     this.lastControls.boost = raw.boost;
     this.lastControls.fire = raw.fire;
     this.lastControls.rocket = raw.rocket;
-    this.lastControls.autoLevel = raw.autoLevel;
+    this.lastControls.autoLevelRoll = raw.autoLevelRoll;
+    this.lastControls.autoLevelPitch = raw.autoLevelPitch;
     this.player.controls = this.lastControls;
 
     const fixed = 1 / 60;
