@@ -11,6 +11,7 @@ import {
 import type { Room } from "colyseus.js";
 import { STATIC_BOXES } from "../../shared/worldLayout";
 import { AIRCRAFT, DEFAULT_THROTTLE, type Settings, type SoloConfig } from "../../shared/config";
+import { PICKUP_INFO } from "../../shared/powerups";
 import { AssetStore } from "./AssetStore";
 import { Environment } from "./Environment";
 import { PhysicsWorld } from "./PhysicsWorld";
@@ -382,6 +383,7 @@ export class Game {
         onKilled: () => this.ui.showToast("SHOT DOWN · REDEPLOYING...", 2),
         onSpawn: () => this.ui.showToast("REDEPLOYED", 1.4),
         onKillFeed: (event) => this.ui.addKill(event),
+        onPickup: (kind) => this.ui.showToast(PICKUP_INFO[kind].toast, 1.8),
       },
     });
     this.onlineMatch = match;
@@ -439,7 +441,7 @@ export class Game {
       team: "RAF",
       aircraftId: aircraft,
       flight: { x: -24, y: 6.2, z: 8, qx: 0, qy: 0, qz: 0, qw: 1, speed: 18, boost: 100, throttle: DEFAULT_THROTTLE },
-      health: 100, maxHealth: 100, ammo: 320, rockets: 4, alive: true, respawnAt: 0,
+      health: 100, maxHealth: 100, armor: 0, ammo: 320, rockets: 4, alive: true, respawnAt: 0,
       invulnerableUntil: 0, fireCooldown: 0, rocketCooldown: 0, kills: 0, deaths: 0, score: 0, lastHitAt: 0, isBot: false,
     };
     this.menuRuntime = runtime;
@@ -496,6 +498,7 @@ export class Game {
           onHit: () => undefined,
           onKilled: () => this.ui.showToast("SHOT DOWN · EJECTING...", 2),
           onSpawn: () => this.ui.showToast("REDEPLOYED", 1.5),
+          onPickup: (kind) => this.ui.showToast(PICKUP_INFO[kind].toast, 1.8),
         },
       },
       config,

@@ -1,7 +1,8 @@
 import { Client, Room, ServerError } from "@colyseus/core";
 import { Quaternion, Vector3 } from "three";
-import { DogfightState, PlayerState } from "./schema";
+import { BalloonState, DogfightState, PlayerState } from "./schema";
 import { AIRCRAFT, DEFAULT_AIRCRAFT, DEFAULT_THROTTLE, WORLD, clamp, getAircraft, type AircraftDef } from "../shared/config";
+import { BALLOON, BALLOON_SPAWNS, pickupForBalloon, type PickupKind } from "../shared/powerups";
 import { createFlightState, integrateFlight, respawnFlight, reverseFlightDirection } from "../shared/flight";
 import { distancePointSegmentSq, pointInsideAnyBox, raycastWorld, raySphere, sphereSweepWorld } from "../shared/collision";
 import { STATIC_BOXES, getSpawnForTeam } from "../shared/worldLayout";
@@ -25,6 +26,15 @@ interface PlayerSim {
   invulnerableUntil: number;
   lastChatAt: number;
   inputSeq: number;
+  armor: number;
+  cadenceUntil: number;
+}
+
+interface SimBalloon {
+  index: number;
+  state: BalloonState;
+  respawnAt: number;
+  pickupExpiresAt: number;
 }
 
 interface SimRocket {
@@ -68,6 +78,7 @@ function validAircraft(value: unknown): string {
 
 export class DogfightRoom extends Room<DogfightState> {
   private sims = new Map<string, PlayerSim>();
+  private balloons: SimBalloon[] = [];
   private rockets: SimRocket[] = [];
   private simTime = 0;
   private nextRocketId = 1;
@@ -92,6 +103,7 @@ export class DogfightRoom extends Room<DogfightState> {
     this.state.roomCode = this.roomCode;
     this.state.isPrivate = this.isPrivate;
     this.state.phase = "lobby";
+    this.resetBalloons();
     const envLength = Number(process.env.MATCH_SECONDS);
     this.matchLength = Number.isFinite(envLength) && envLength > 0 ? clamp(envLength, 5, 1800) : WORLD.matchSeconds;
     this.setMetadata({ code: this.roomCode, mode: this.mode, maxPlayers: this.maxPlayers, isPrivate: this.isPrivate, phase: "lobby" });
@@ -185,6 +197,8 @@ export class DogfightRoom extends Room<DogfightState> {
       invulnerableUntil: 0,
       lastChatAt: 0,
       inputSeq: 0,
+      armor: 0,
+      cadenceUntil: 0,
     });
     if (!this.state.hostId) this.state.hostId = client.sessionId;
     this.refreshHosts();
@@ -276,6 +290,7 @@ export class DogfightRoom extends Room<DogfightState> {
     this.state.scoreAXIS = 0;
     this.rockets = [];
     this.simTime = 0;
+    this.resetBalloons();
     for (const sim of this.sims.values()) {
       sim.state.kills = 0;
       sim.state.deaths = 0;
@@ -294,8 +309,12 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.ammo = sim.def.gunAmmo;
     sim.state.rockets = sim.def.rocketAmmo;
     sim.state.maxHealth = sim.def.maxHealth;
+    sim.state.armor = 0;
+    sim.state.cadenceSeconds = 0;
     sim.state.respawnIn = 0;
     sim.state.boosting = false;
+    sim.armor = 0;
+    sim.cadenceUntil = 0;
     sim.invulnerableUntil = this.simTime + (initial ? 1.2 : 2.4);
     sim.lastHitBy = null;
     sim.lastHitAt = -100;
@@ -365,6 +384,7 @@ export class DogfightRoom extends Room<DogfightState> {
       this.syncState(sim);
     }
     this.updateRockets(dt);
+    this.updateBalloons();
     if (this.state.timeLeft <= 0) this.endMatch();
   }
 
@@ -381,12 +401,14 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.boost = f.boost;
     sim.state.throttle = f.throttle;
     sim.state.boosting = sim.controls.boost;
+    sim.state.armor = sim.armor;
+    sim.state.cadenceSeconds = Math.max(0, sim.cadenceUntil - this.simTime);
     sim.state.lastProcessedInput = sim.inputSeq;
   }
 
   private handleWeapons(sim: PlayerSim): void {
     if (sim.controls.fire && sim.fireCooldown <= 0 && sim.state.ammo > 0) {
-      sim.fireCooldown = sim.def.fireInterval;
+      sim.fireCooldown = this.simTime < sim.cadenceUntil ? sim.def.fireInterval * BALLOON.cadenceMultiplier : sim.def.fireInterval;
       sim.state.ammo--;
       q.set(sim.flight.qx, sim.flight.qy, sim.flight.qz, sim.flight.qw);
       fwd.set(0, 0, -1).applyQuaternion(q);
@@ -408,11 +430,25 @@ export class DogfightRoom extends Room<DogfightState> {
           hitSim = other;
         }
       }
+      let hitBalloon: SimBalloon | null = null;
+      for (const balloon of this.balloons) {
+        if (!balloon.state.alive) continue;
+        const spawn = BALLOON_SPAWNS[balloon.index];
+        tmp2.set(spawn.x, spawn.y, spawn.z);
+        const t = raySphere(muzzle, dir, hitDist, tmp2, BALLOON.hitRadius);
+        if (t !== null && t < hitDist) {
+          hitDist = t;
+          hitSim = null;
+          hitBalloon = balloon;
+        }
+      }
       const end = muzzle.clone().addScaledVector(dir, hitDist);
       this.broadcast("shot", { ownerId: sim.id, x: muzzle.x, y: muzzle.y, z: muzzle.z, ex: end.x, ey: end.y, ez: end.z, team: sim.state.team });
       if (hitSim) {
         this.applyDamage(hitSim, sim.def.gunDamage, sim, "machine guns");
         this.broadcast("hit", { attackerId: sim.id, targetId: hitSim.id, x: end.x, y: end.y, z: end.z, damage: sim.def.gunDamage });
+      } else if (hitBalloon) {
+        this.damageBalloon(hitBalloon, sim.def.gunDamage, sim, end);
       }
     }
     const rocketPressed = sim.controls.rocket && !sim.prevRocket;
@@ -496,9 +532,21 @@ export class DogfightRoom extends Room<DogfightState> {
             break;
           }
         }
+        if (!detonate) {
+          for (const balloon of this.balloons) {
+            if (!balloon.state.alive) continue;
+            const spawn = BALLOON_SPAWNS[balloon.index];
+            tmp.set(spawn.x, spawn.y, spawn.z);
+            if (distancePointSegmentSq(tmp, old, next) < BALLOON.hitRadius * BALLOON.hitRadius) {
+              detonate = true;
+              break;
+            }
+          }
+        }
       }
       if (detonate || r.life <= 0) {
         this.broadcast("explosion", { id: r.id, x: at.x, y: at.y, z: at.z, scale: 1.5 });
+        const owner = this.sims.get(r.ownerId) ?? null;
         for (const other of this.sims.values()) {
           if (!other.state.alive) continue;
           if (this.mode === "tdm" && other.state.team === r.team) continue;
@@ -507,8 +555,18 @@ export class DogfightRoom extends Room<DogfightState> {
           const dist = tmp.distanceTo(at);
           if (dist < WORLD.rocketRadius) {
             const amount = WORLD.rocketDamage * clamp(1 - dist / WORLD.rocketRadius, 0.18, 1);
-            const owner = this.sims.get(r.ownerId);
-            this.applyDamage(other, amount, owner ?? null, "rockets");
+            this.applyDamage(other, amount, owner, "rockets");
+          }
+        }
+        const blastRadius = WORLD.rocketRadius + BALLOON.hitRadius;
+        for (const balloon of this.balloons) {
+          if (!balloon.state.alive) continue;
+          const spawn = BALLOON_SPAWNS[balloon.index];
+          tmp.set(spawn.x, spawn.y, spawn.z);
+          const dist = tmp.distanceTo(at);
+          if (dist < blastRadius) {
+            const amount = WORLD.rocketDamage * clamp(1 - dist / blastRadius, 0.2, 1);
+            this.damageBalloon(balloon, amount, owner, at);
           }
         }
         this.rockets.splice(i, 1);
@@ -519,7 +577,14 @@ export class DogfightRoom extends Room<DogfightState> {
   private applyDamage(target: PlayerSim, amount: number, attacker: PlayerSim | null, weapon: string): void {
     if (!target.state.alive) return;
     if (this.simTime < target.invulnerableUntil) return;
-    target.state.health = Math.max(0, target.state.health - amount);
+    let remaining = amount;
+    if (target.armor > 0) {
+      const absorbed = Math.min(target.armor, remaining);
+      target.armor -= absorbed;
+      target.state.armor = target.armor;
+      remaining -= absorbed;
+    }
+    target.state.health = Math.max(0, target.state.health - remaining);
     target.lastHitBy = attacker?.id ?? null;
     target.lastHitAt = this.simTime;
     if (target.state.health > 0) return;
@@ -543,6 +608,102 @@ export class DogfightRoom extends Room<DogfightState> {
     this.broadcast("kill", event);
     this.broadcast("explosion", { id: 0, x: target.flight.x, y: target.flight.y, z: target.flight.z, scale: 1.8 });
     this.syncState(target);
+  }
+
+  private resetBalloons(): void {
+    this.state.balloons.clear();
+    this.balloons = [];
+    BALLOON_SPAWNS.forEach((_, index) => {
+      const state = new BalloonState();
+      state.kind = pickupForBalloon(index);
+      state.alive = true;
+      state.pickup = false;
+      state.health = BALLOON.maxHealth;
+      this.state.balloons.set(String(index), state);
+      this.balloons.push({ index, state, respawnAt: 0, pickupExpiresAt: 0 });
+    });
+  }
+
+  private updateBalloons(): void {
+    for (const balloon of this.balloons) {
+      if (balloon.state.alive) continue;
+      if (balloon.state.pickup && this.simTime >= balloon.pickupExpiresAt) {
+        balloon.state.pickup = false;
+      }
+      if (this.simTime >= balloon.respawnAt) {
+        balloon.state.alive = true;
+        balloon.state.health = BALLOON.maxHealth;
+        balloon.state.pickup = false;
+      }
+    }
+    for (const sim of this.sims.values()) {
+      if (!sim.state.alive) continue;
+      for (const balloon of this.balloons) {
+        if (balloon.state.alive || !balloon.state.pickup) continue;
+        const spawn = BALLOON_SPAWNS[balloon.index];
+        const dx = sim.flight.x - spawn.x;
+        const dy = sim.flight.y - spawn.y;
+        const dz = sim.flight.z - spawn.z;
+        if (dx * dx + dy * dy + dz * dz > BALLOON.pickupRadius * BALLOON.pickupRadius) continue;
+        this.collectPickup(sim, balloon);
+      }
+    }
+  }
+
+  private collectPickup(sim: PlayerSim, balloon: SimBalloon): void {
+    const spawn = BALLOON_SPAWNS[balloon.index];
+    const kind = balloon.state.kind as PickupKind;
+    balloon.state.pickup = false;
+    if (kind === "armor") {
+      sim.armor = Math.min(BALLOON.armorMax, sim.armor + BALLOON.armorAmount);
+      sim.state.armor = sim.armor;
+    } else if (kind === "health") {
+      sim.state.health = Math.min(sim.def.maxHealth, sim.state.health + BALLOON.healthAmount);
+    } else {
+      sim.cadenceUntil = this.simTime + BALLOON.cadenceSeconds;
+      sim.state.cadenceSeconds = BALLOON.cadenceSeconds;
+    }
+    this.broadcast("pickup", {
+      index: balloon.index,
+      playerId: sim.id,
+      kind,
+      x: spawn.x,
+      y: spawn.y,
+      z: spawn.z,
+    });
+  }
+
+  private damageBalloon(balloon: SimBalloon, amount: number, attacker: PlayerSim | null, at: Vector3): void {
+    if (!balloon.state.alive) return;
+    balloon.state.health = Math.max(0, balloon.state.health - amount);
+    this.broadcast("balloonHit", {
+      index: balloon.index,
+      x: at.x,
+      y: at.y,
+      z: at.z,
+      byId: attacker?.id ?? null,
+      damage: amount,
+    });
+    if (balloon.state.health > 0) return;
+    this.destroyBalloon(balloon, attacker);
+  }
+
+  private destroyBalloon(balloon: SimBalloon, attacker: PlayerSim | null): void {
+    balloon.state.alive = false;
+    balloon.state.pickup = true;
+    balloon.state.health = 0;
+    balloon.respawnAt = this.simTime + BALLOON.respawnSeconds;
+    balloon.pickupExpiresAt = this.simTime + BALLOON.pickupLifetime;
+    if (attacker) attacker.state.score += BALLOON.scoreBonus;
+    const spawn = BALLOON_SPAWNS[balloon.index];
+    this.broadcast("balloonDown", {
+      index: balloon.index,
+      x: spawn.x,
+      y: spawn.y,
+      z: spawn.z,
+      kind: balloon.state.kind,
+      byId: attacker?.id ?? null,
+    });
   }
 
   private endMatch(): void {

@@ -17,7 +17,7 @@ The target look is a bright, colorful low-poly toy world: oversized house and fu
 
 ## UI and mobile
 
-All UI is DOM/CSS in `index.html`, `src/style.css` and `src/ui/UI.ts`. Keep the pixel HUD legible, including scores, timer, radar, reticle, health, speed, boost, throttle, ammo, kill feed, chat and scoreboard. Touch layout must work in both landscape and portrait, with safe-area-aware HUD and controls.
+All UI is DOM/CSS in `index.html`, `src/style.css` and `src/ui/UI.ts`. Keep the pixel HUD legible, including scores, timer, radar, reticle, health, armour, rapid-fire status, speed, boost, throttle, ammo, kill feed, chat and scoreboard. Touch layout must work in both landscape and portrait, with safe-area-aware HUD and controls.
 
 The portrait layout deliberately moves score and bars below the radar, keeps the stick and action pad at the bottom, and hides width-hungry desktop chrome. Do not reintroduce a rotate-required overlay. Test at a 390×844 mobile viewport as well as landscape.
 

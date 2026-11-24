@@ -16,7 +16,7 @@ Server state is defined in `server/schema.ts`. Client prediction lives in `src/g
 
 Client messages: `input`, `ready`, `aircraft`, `team`, `start`, `chat`, `leaveMatch`.
 
-Server broadcasts/events: `system`, `chat`, `shot`, `hit`, `kill`, `explosion`, `rocketSpawn`, `impact`, `respawn`, `matchStart`, `matchEnd`, `roomError`.
+Server broadcasts/events: `system`, `chat`, `shot`, `hit`, `kill`, `explosion`, `rocketSpawn`, `impact`, `balloonHit`, `balloonDown`, `pickup`, `respawn`, `matchStart`, `matchEnd`, `roomError`.
 
 Keep shared simulation helpers and schema fields synchronized. New gameplay that affects both modes belongs in `shared/` or both match paths, not only one.
 

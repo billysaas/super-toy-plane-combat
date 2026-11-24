@@ -11,6 +11,7 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 - **One continuous toy world:** a large multi-room house with a double-height living room, kitchen, bedrooms, hallways, stairs, skylight, collidable furniture, garden, patio, trees, hedges, fountain and a fortified toy-box boundary.
 - **Arcade flight:** bank-to-turn coordination, boost, throttle, collision bounces, damage and respawning.
 - **Combat:** twin machine-gun tracers, homing rockets, splash damage, explosions, debris physics, smoke trails, hit markers and kill feed.
+- **Destructible balloons:** ten drifting hot-air balloons can be shot down to release floating armour, hull repair or rapid-fire pickups. Fly through a pickup to collect it.
 - **Four aircraft:** Meadowhawk, Blue Jay, Crimson Fox and Golden Wasp, each with its own speed, agility, armour, ammo and handling.
 - **Two cameras:** chase camera and first-person cockpit view with cockpit framing.
 - **Solo play:** team deathmatch or free-for-all against 1–11 AI pilots with Rookie, Pilot and Ace difficulty.
@@ -71,7 +72,7 @@ Choose team deathmatch or free-for-all, enemy count and difficulty. AI pilots se
 - Public room browser and quick match.
 - Private rooms joinable by six-character code.
 - Lobby with team assignment, aircraft selection and ready state. The host launches when all other pilots are ready.
-- Authoritative server simulation for movement validation, damage, rockets, respawns, scores and match timer.
+- Authoritative server simulation for movement validation, damage, rockets, respawns, scores, balloon pickups and match timer.
 - Optional deployment configuration with `PORT`, `MATCH_SECONDS` and `VITE_SERVER_URL`.
 
 Quick local test of a shortened match:

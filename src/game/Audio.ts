@@ -250,6 +250,26 @@ export class AudioManager {
     boom.stop(now + 1.2);
   }
 
+  pickup(): void {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    [660, 880, 1174].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      const t = now + i * 0.055;
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.04, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      osc.connect(gain);
+      gain.connect(this.master!);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+  }
+
   collision(): void {
     if (!this.ctx || !this.master || !this.noiseBuffer) return;
     const ctx = this.ctx;

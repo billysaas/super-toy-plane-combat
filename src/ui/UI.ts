@@ -522,6 +522,11 @@ export class UIManager {
     healthFill.style.width = `${Math.max(0, Math.min(1, healthRatio)) * 100}%`;
     healthFill.style.background = healthRatio < 0.3 ? "linear-gradient(90deg,#d94a36,#ff826a)" : "linear-gradient(90deg,#53c16d,#89e99f)";
     el("health-value").textContent = String(Math.max(0, Math.ceil(data.health)));
+    const armorRatio = data.armorMax > 0 ? data.armor / data.armorMax : 0;
+    el("armor-fill").style.width = `${Math.max(0, Math.min(1, armorRatio)) * 100}%`;
+    el("armor-value").textContent = String(Math.max(0, Math.ceil(data.armor)));
+    el("cadence-value").textContent = data.cadence > 0 ? `${Math.ceil(data.cadence)}S` : "--";
+    el("cadence-row").classList.toggle("active", data.cadence > 0);
     el("boost-fill").style.width = `${Math.max(0, Math.min(100, data.boost))}%`;
     el("boost-value").textContent = String(Math.round(data.boost));
     el("throttle-fill").style.width = `${Math.max(0, Math.min(100, data.throttle * 100))}%`;

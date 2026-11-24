@@ -24,11 +24,13 @@ import {
   type Team,
 } from "../../shared/config";
 import { integrateFlight, reverseFlightDirection } from "../../shared/flight";
+import { BALLOON, PICKUP_INFO, type PickupKind } from "../../shared/powerups";
 import type { Controls, FlightState, InputPacket, PlaneRuntime } from "../../shared/types";
 import type { ActiveMatch } from "./ActiveMatch";
 import type { AssetStore } from "./AssetStore";
 import type { AudioManager } from "./Audio";
 import { AircraftView } from "./AircraftView";
+import { BalloonField } from "./BalloonField";
 import type { CameraRig } from "./CameraRig";
 import type { Effects } from "./Effects";
 import type { InputManager } from "./Input";
@@ -52,6 +54,8 @@ interface NetPlayerState {
   throttle: number;
   health: number;
   maxHealth: number;
+  armor: number;
+  cadenceSeconds: number;
   ammo: number;
   rockets: number;
   kills: number;
@@ -59,6 +63,16 @@ interface NetPlayerState {
   score: number;
   boosting: boolean;
   respawnIn: number;
+}
+
+interface NetBalloonState {
+  alive: boolean;
+  pickup: boolean;
+  kind: PickupKind;
+}
+
+interface BalloonMap {
+  forEach: (cb: (balloon: NetBalloonState, key: string) => void) => void;
 }
 
 interface PlayerMap {
@@ -78,6 +92,7 @@ interface NetState {
   scoreRAF: number;
   scoreAXIS: number;
   players: PlayerMap;
+  balloons: BalloonMap;
 }
 
 interface Snapshot {
@@ -89,6 +104,8 @@ interface Snapshot {
   flight: FlightState;
   health: number;
   maxHealth: number;
+  armor: number;
+  cadenceSeconds: number;
   ammo: number;
   rockets: number;
   kills: number;
@@ -143,6 +160,7 @@ export interface OnlineCallbacks {
   onKilled: () => void;
   onSpawn: () => void;
   onKillFeed: (event: any) => void;
+  onPickup: (kind: PickupKind) => void;
 }
 
 const tmp = new Vector3();
@@ -186,6 +204,7 @@ export class OnlineMatch implements ActiveMatch {
   private targetId: string | null = null;
   private lastHudTarget: HudTarget | null = null;
   private rockets: VisualRocket[] = [];
+  private balloonField: BalloonField;
   private result: MatchResult | null = null;
   private ended = false;
   private collisionCooldown = 0;
@@ -199,6 +218,8 @@ export class OnlineMatch implements ActiveMatch {
     this.cameraMode = deps.settings.camera;
     this.deps.camera.setMode(this.cameraMode);
     this.deps.effects.setQuality(deps.settings.quality);
+    this.balloonField = new BalloonField(this.deps.scene, deps.settings.quality);
+    this.syncBalloons();
     this.rebuildFromState();
     if (this.local) {
       this.deps.camera.snapTo(this.local.runtime);
@@ -221,6 +242,8 @@ export class OnlineMatch implements ActiveMatch {
         flight: toFlight(p),
         health: p.health,
         maxHealth: p.maxHealth,
+        armor: p.armor,
+        cadenceSeconds: p.cadenceSeconds,
         ammo: p.ammo,
         rockets: p.rockets,
         kills: p.kills,
@@ -254,6 +277,7 @@ export class OnlineMatch implements ActiveMatch {
       actor.runtime.name = snap.name;
       actor.runtime.health = snap.health;
       actor.runtime.maxHealth = snap.maxHealth;
+      actor.runtime.armor = snap.armor;
       actor.runtime.ammo = snap.ammo;
       actor.runtime.rockets = snap.rockets;
       actor.runtime.kills = snap.kills;
@@ -290,6 +314,7 @@ export class OnlineMatch implements ActiveMatch {
       flight: { ...snap.flight },
       health: snap.health,
       maxHealth: snap.maxHealth,
+      armor: snap.armor,
       ammo: snap.ammo,
       rockets: snap.rockets,
       alive: snap.alive,
@@ -323,6 +348,8 @@ export class OnlineMatch implements ActiveMatch {
 
   update(dt: number): void {
     this.state = getState(this.room);
+    this.syncBalloons();
+    this.balloonField.update(dt);
     if (this.ended) {
       this.updateVisuals(dt);
       this.deps.effects.update(dt, this.deps.physics);
@@ -369,6 +396,7 @@ export class OnlineMatch implements ActiveMatch {
 
     this.local.runtime.health = localSnap.health;
     this.local.runtime.maxHealth = localSnap.maxHealth;
+    this.local.runtime.armor = localSnap.armor;
     this.local.runtime.ammo = localSnap.ammo;
     this.local.runtime.rockets = localSnap.rockets;
     this.local.runtime.kills = localSnap.kills;
@@ -496,6 +524,7 @@ export class OnlineMatch implements ActiveMatch {
       actor.runtime.team = snap.team;
       actor.runtime.health = snap.health;
       actor.runtime.maxHealth = snap.maxHealth;
+      actor.runtime.armor = snap.armor;
       actor.runtime.ammo = snap.ammo;
       actor.runtime.rockets = snap.rockets;
       actor.runtime.kills = snap.kills;
@@ -610,6 +639,7 @@ export class OnlineMatch implements ActiveMatch {
           id, name: p.name, team: p.team, aircraft: p.aircraft, alive: p.alive,
           flight: toFlight(p), health: p.health, maxHealth: p.maxHealth, ammo: p.ammo,
           rockets: p.rockets, kills: p.kills, deaths: p.deaths, score: p.score, boosting: p.boosting, respawnIn: p.respawnIn,
+          armor: p.armor, cadenceSeconds: p.cadenceSeconds,
         };
       }
     });
@@ -655,6 +685,9 @@ export class OnlineMatch implements ActiveMatch {
       scoreAXIS: this.state.scoreAXIS,
       health: snap?.health ?? 0,
       maxHealth: snap?.maxHealth ?? 100,
+      armor: snap?.armor ?? 0,
+      armorMax: BALLOON.armorMax,
+      cadence: snap?.cadenceSeconds ?? 0,
       speed: f.speed * 4.6,
       altitude: f.y * 3.2,
       boost: f.boost,
@@ -796,7 +829,33 @@ export class OnlineMatch implements ActiveMatch {
       }
     } else if (event === "kill") {
       this.deps.callbacks.onKillFeed(payload);
+    } else if (event === "balloonHit") {
+      const pos = new Vector3(payload.x, payload.y, payload.z);
+      this.deps.effects.hitSpark(pos, 0xffcf8a);
+    } else if (event === "balloonDown") {
+      const pos = new Vector3(payload.x, payload.y, payload.z);
+      this.deps.effects.explosion(pos, 0.9, 0xffc77a);
+      this.deps.effects.spawnDebris(pos, this.deps.physics, 0.55, 0xd95b4a);
+      const dist = this.local ? pos.distanceTo(new Vector3(this.local.runtime.flight.x, this.local.runtime.flight.y, this.local.runtime.flight.z)) : 999;
+      this.deps.audio.explosion(dist, false);
+      if (dist < 60) this.deps.camera.addShake(clamp(1 - dist / 60, 0.15, 0.8));
+    } else if (event === "pickup") {
+      const pos = new Vector3(payload.x, payload.y, payload.z);
+      const kind = payload.kind as PickupKind;
+      const info = PICKUP_INFO[kind];
+      if (info) this.deps.effects.hitSpark(pos, info.color);
+      if (payload.playerId === this.sessionId) {
+        this.hitFlash = 1;
+        this.deps.audio.pickup();
+        this.deps.callbacks.onPickup(kind);
+      }
     }
+  }
+
+  private syncBalloons(): void {
+    this.state.balloons?.forEach((balloon, key) => {
+      this.balloonField.setState(Number(key), balloon.alive, balloon.pickup);
+    });
   }
 
   private spawnRocketVisual(payload: { id: number; ownerId: string; team: Team; x: number; y: number; z: number; vx: number; vy: number; vz: number; targetId: string | null }): void {
@@ -842,6 +901,7 @@ export class OnlineMatch implements ActiveMatch {
     for (const rocket of this.rockets) this.deps.scene.remove(rocket.mesh);
     this.rockets = [];
     this.planes.clear();
+    this.balloonField.dispose();
     this.deps.effects.reset(this.deps.physics);
   }
 }

@@ -19,6 +19,8 @@ export class PlayerState extends Schema {
   @type("number") throttle = 0.5;
   @type("number") health = 100;
   @type("number") maxHealth = 100;
+  @type("number") armor = 0;
+  @type("number") cadenceSeconds = 0;
   @type("number") ammo = 320;
   @type("number") rockets = 4;
   @type("number") kills = 0;
@@ -29,8 +31,16 @@ export class PlayerState extends Schema {
   @type("number") respawnIn = 0;
 }
 
+export class BalloonState extends Schema {
+  @type("string") kind: "armor" | "health" | "cadence" = "health";
+  @type("boolean") alive = true;
+  @type("boolean") pickup = false;
+  @type("number") health = 42;
+}
+
 export class DogfightState extends Schema {
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
+  @type({ map: BalloonState }) balloons = new MapSchema<BalloonState>();
   @type("string") phase: "lobby" | "playing" | "ended" = "lobby";
   @type("string") mode: "tdm" | "ffa" = "tdm";
   @type("string") hostId = "";

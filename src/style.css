@@ -2134,6 +2134,7 @@ select {
   transition: width 0.12s linear;
 }
 .bar-fill.health { background: linear-gradient(90deg, #53c16d, #89e99f); }
+.bar-fill.armor { background: linear-gradient(90deg, #3c88d8, #8fd0ff); }
 .bar-fill.boost { background: linear-gradient(90deg, #2680d4, #63c6ff); }
 .bar-fill.throttle { background: linear-gradient(90deg, #d39b29, #ffd15a); }
 
@@ -2282,6 +2283,7 @@ select {
   border-top: 1px solid rgba(246, 234, 209, 0.09);
 }
 .weapon-row b { color: var(--cream); font-weight: 400; }
+.weapon-row.active b { color: var(--yellow); text-shadow: 0 0 8px rgba(255, 209, 90, 0.45); }
 
 .mini-footer {
   display: flex;
