@@ -2120,6 +2120,14 @@ select {
   font-size: 6px;
 }
 
+.bar-icon {
+  display: none;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+
 .bar-shell {
   flex: 1;
   height: 7px;
@@ -2746,9 +2754,48 @@ body.touch-playing .lock-prompt {
 }
 
 body.touch-playing .hud-bars {
-  bottom: 14px;
-  width: min(340px, 36vw);
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  bottom: auto;
+  width: min(360px, calc(100vw - 32px));
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(6, 13, 23, 0.78);
 }
+
+body.touch-playing .bar-block {
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+  gap: 4px;
+}
+
+body.touch-playing .bar-label {
+  width: auto;
+  display: flex;
+  align-items: center;
+}
+
+body.touch-playing .bar-text { display: none; }
+
+body.touch-playing .bar-icon {
+  display: block;
+  width: 11px;
+  height: 11px;
+}
+
+body.touch-playing .bar-shell { height: 6px; }
+
+body.touch-playing .bar-block b {
+  width: 17px;
+  font-size: 7px;
+}
+
+body.touch-playing .health-block .bar-label { color: #89e99f; }
+body.touch-playing .armor-block .bar-label { color: #8fd0ff; }
+body.touch-playing .boost-block .bar-label { color: #63c6ff; }
+body.touch-playing .throttle-block .bar-label { color: #ffd15a; }
 
 body.touch-playing .chat-feed {
   display: none;
@@ -2958,27 +3005,25 @@ body.touch-playing .hud-small-card {
   }
 
   body.touch-playing .hud-bars {
-    top: calc(env(safe-area-inset-top, 0px) + 166px);
+    top: calc(env(safe-area-inset-top, 0px) + 162px);
     bottom: auto;
-    width: calc(100% - 96px);
+    width: calc(100% - 28px);
     max-width: 340px;
-    padding: 7px 10px;
+    padding: 4px 8px;
+    gap: 6px;
     background: rgba(6, 13, 23, 0.84);
   }
 
-  .bar-block {
-    height: 16px;
-    gap: 6px;
+  body.touch-playing .bar-block {
+    flex: 1;
+    min-width: 0;
+    height: 14px;
+    gap: 3px;
   }
 
-  .bar-label {
-    width: 38px;
-    font-size: 5px;
-  }
-
-  .bar-block b {
-    width: 26px;
-    font-size: 8px;
+  body.touch-playing .bar-block b {
+    width: 17px;
+    font-size: 7px;
   }
 
   .feed-panel,
