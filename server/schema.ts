@@ -20,6 +20,8 @@ export class PlayerState extends Schema {
   @type("number") health = 100;
   @type("number") maxHealth = 100;
   @type("number") armor = 0;
+  @type("number") shield = 0;
+  @type("number") shieldSeconds = 0;
   @type("number") cadenceSeconds = 0;
   @type("number") ammo = 320;
   @type("number") rockets = 4;
@@ -32,7 +34,7 @@ export class PlayerState extends Schema {
 }
 
 export class BalloonState extends Schema {
-  @type("string") kind: "armor" | "health" | "cadence" = "health";
+  @type("string") kind: "armor" | "health" | "cadence" | "shield" = "health";
   @type("boolean") alive = true;
   @type("boolean") pickup = false;
   @type("number") health = 42;

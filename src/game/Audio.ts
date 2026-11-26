@@ -221,6 +221,23 @@ export class AudioManager {
     src.stop(now + 0.6);
   }
 
+  shieldHit(): void {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1250, now);
+    osc.frequency.exponentialRampToValueAtTime(720, now + 0.12);
+    gain.gain.setValueAtTime(0.04, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    osc.connect(gain);
+    gain.connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
   explosion(distance = 0, big = false): void {
     if (!this.ctx || !this.master || !this.noiseBuffer) return;
     const ctx = this.ctx;

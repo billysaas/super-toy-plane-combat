@@ -332,6 +332,27 @@ export class Effects {
     this.smoke.spawn({ x: position.x, y: position.y, z: position.z, life: 0.35, size: 0.8, sizeGrow: 1.5, r: c.r, g: c.g, b: c.b, a: 0.4 });
   }
 
+  shieldBreak(position: Vector3): void {
+    for (let i = 0; i < 26; i++) {
+      const dir = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+      this.fire.spawn({
+        x: position.x, y: position.y, z: position.z,
+        vx: dir.x * (7 + Math.random() * 13),
+        vy: dir.y * (7 + Math.random() * 13),
+        vz: dir.z * (7 + Math.random() * 13),
+        life: 0.28 + Math.random() * 0.35,
+        size: 0.34 + Math.random() * 0.25,
+        drag: 0.93,
+        r: 0.5, g: 2.1, b: 2.8, a: 0.85,
+      });
+    }
+    this.smoke.spawn({
+      x: position.x, y: position.y, z: position.z,
+      life: 0.6, size: 2.4, sizeGrow: 4.5, drag: 0.95,
+      r: 0.35, g: 0.75, b: 0.9, a: 0.3,
+    });
+  }
+
   smokeTrail(position: Vector3, direction: Vector3, dark = false, scale = 1): void {
     if (this.quality === "low" && Math.random() > 0.45) return;
     const gray = dark ? 0.18 : 0.56;

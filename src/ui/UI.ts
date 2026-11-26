@@ -527,6 +527,8 @@ export class UIManager {
     el("armor-value").textContent = String(Math.max(0, Math.ceil(data.armor)));
     el("cadence-value").textContent = data.cadence > 0 ? `${Math.ceil(data.cadence)}S` : "--";
     el("cadence-row").classList.toggle("active", data.cadence > 0);
+    el("shield-value").textContent = data.shield > 0 ? `${Math.ceil(data.shield)} · ${Math.ceil(data.shieldSeconds)}S` : "--";
+    el("shield-row").classList.toggle("active", data.shield > 0);
     el("boost-fill").style.width = `${Math.max(0, Math.min(100, data.boost))}%`;
     el("boost-value").textContent = String(Math.round(data.boost));
     el("throttle-fill").style.width = `${Math.max(0, Math.min(100, data.throttle * 100))}%`;

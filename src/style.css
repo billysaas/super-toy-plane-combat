@@ -2323,6 +2323,7 @@ select {
 }
 .weapon-row b { color: var(--cream); font-weight: 400; }
 .weapon-row.active b { color: var(--yellow); text-shadow: 0 0 8px rgba(255, 209, 90, 0.45); }
+.weapon-row.shield.active b { color: #86e5ff; text-shadow: 0 0 8px rgba(100, 210, 255, 0.55); }
 
 .mini-footer {
   display: flex;

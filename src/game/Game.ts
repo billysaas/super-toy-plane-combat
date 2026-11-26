@@ -463,7 +463,7 @@ export class Game {
       team: "RAF",
       aircraftId: aircraft,
       flight: { x: -24, y: 6.2, z: 8, qx: 0, qy: 0, qz: 0, qw: 1, speed: 18, boost: 100, throttle: DEFAULT_THROTTLE },
-      health: 100, maxHealth: 100, armor: 0, ammo: 320, rockets: 4, alive: true, respawnAt: 0,
+      health: 100, maxHealth: 100, armor: 0, shield: 0, shieldMax: 70, ammo: 320, rockets: 4, alive: true, respawnAt: 0,
       invulnerableUntil: 0, fireCooldown: 0, rocketCooldown: 0, kills: 0, deaths: 0, score: 0, lastHitAt: 0, isBot: false,
     };
     this.menuRuntime = runtime;
