@@ -326,8 +326,27 @@ export class AudioManager {
     osc.stop(now + 0.08);
   }
 
-  fanfare(win: boolean): void {
+  killstreak(): void {
     if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    [523, 659, 880, 1319].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      const t = now + i * 0.05;
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.055, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc.connect(gain);
+      gain.connect(this.master!);
+      osc.start(t);
+      osc.stop(t + 0.24);
+    });
+  }
+
+  fanfare(win: boolean): void {    if (!this.ctx || !this.master) return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
     const notes = win ? [523, 659, 784, 1047] : [392, 349, 294, 220];

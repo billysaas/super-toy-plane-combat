@@ -20,6 +20,7 @@ import {
 import { createFlightState, integrateFlight, respawnFlight, reverseFlightDirection } from "../../shared/flight";
 import { distancePointSegmentSq, raySphere } from "../../shared/collision";
 import { getSpawnForTeam } from "../../shared/worldLayout";
+import { MULTI_KILL_BONUS, MULTI_KILL_WINDOW, multiKillTitle, streakMilestone, type CalloutTone } from "../../shared/streaks";
 import { BALLOON, BALLOON_SPAWNS, PICKUP_INFO, pickupForBalloon, type PickupKind } from "../../shared/powerups";
 import type { Controls, KillEvent, PlaneRuntime } from "../../shared/types";
 import type { AssetStore } from "./AssetStore";
@@ -76,6 +77,7 @@ export interface HudData {
   aircraftName: string;
   kills: number;
   deaths: number;
+  streak: number;
   boosting: boolean;
   invulnerable: boolean;
   stalled: boolean;
@@ -116,6 +118,7 @@ export interface LocalMatchCallbacks {
   onKilled: () => void;
   onSpawn: () => void;
   onPickup: (kind: PickupKind) => void;
+  onCombatCallout: (title: string, subtitle: string, tone: CalloutTone) => void;
 }
 
 export interface LocalMatchDeps {
@@ -146,6 +149,9 @@ interface LocalPlane {
   aiSpread: number;
   cadenceUntil: number;
   shieldUntil: number;
+  streak: number;
+  lastKillAt: number;
+  multiKill: number;
 }
 
 interface LocalBalloon {
@@ -306,6 +312,9 @@ export class LocalMatch {
       aiSpread: isBot ? 0.7 : 1,
       cadenceUntil: 0,
       shieldUntil: 0,
+      streak: 0,
+      lastKillAt: -100,
+      multiKill: 0,
     };
   }
 
@@ -793,6 +802,11 @@ export class LocalMatch {
     if (killer) {
       killer.runtime.kills++;
       killer.runtime.score += 100;
+      killer.streak++;
+      const quick = this.simTime - killer.lastKillAt <= MULTI_KILL_WINDOW;
+      killer.multiKill = quick ? killer.multiKill + 1 : 1;
+      killer.lastKillAt = this.simTime;
+      this.awardStreak(killer, quick);
       if (killer.runtime.team === "RAF") this.scoreRAF++;
       else this.scoreAXIS++;
       if (killer === this.player) {
@@ -800,6 +814,9 @@ export class LocalMatch {
         this.hitFlash = 1;
       }
     }
+    victim.streak = 0;
+    victim.multiKill = 0;
+    victim.lastKillAt = -100;
     const event: KillEvent = {
       killer: killer?.runtime.name ?? "FURNITURE",
       victim: victim.runtime.name,
@@ -818,6 +835,33 @@ export class LocalMatch {
     if (this.planes.every((p) => !p.runtime.alive) || this.timeLeft <= 0) this.endMatch();
   }
 
+  private awardStreak(killer: LocalPlane, quick: boolean): void {
+    const milestone = streakMilestone(killer.streak);
+    if (milestone) {
+      killer.runtime.score += milestone.bonusScore;
+      if (milestone.streak === 3) killer.cadenceUntil = Math.max(killer.cadenceUntil, this.simTime + 10);
+      else if (milestone.streak === 5) killer.runtime.armor = Math.min(BALLOON.armorMax, killer.runtime.armor + 35);
+      else if (milestone.streak === 7) killer.runtime.health = Math.min(killer.runtime.maxHealth, killer.runtime.health + 45);
+      else if (milestone.streak >= 10) {
+        killer.runtime.rockets = Math.min(killer.def.rocketAmmo + 2, killer.runtime.rockets + 2);
+        killer.runtime.armor = Math.min(BALLOON.armorMax, killer.runtime.armor + 20);
+      }
+      if (killer === this.player) {
+        this.deps.audio.killstreak();
+        this.deps.callbacks.onCombatCallout(milestone.title, milestone.subtitle, milestone.tone);
+      }
+      return;
+    }
+    if (!quick) return;
+    const title = multiKillTitle(killer.multiKill);
+    if (!title) return;
+    killer.runtime.score += MULTI_KILL_BONUS;
+    if (killer === this.player) {
+      this.deps.audio.killstreak();
+      this.deps.callbacks.onCombatCallout(title, `MULTI-KILL BONUS +${MULTI_KILL_BONUS}`, "gold");
+    }
+  }
+
   private respawn(p: LocalPlane): void {
     const spawn = getSpawnForTeam(p.runtime.team === "RAF" ? "RAF" : "AXIS");
     respawnFlight(p.runtime.flight, spawn.x, spawn.y, spawn.z, spawn.yaw, p.def);
@@ -828,6 +872,9 @@ export class LocalMatch {
     p.runtime.ammo = p.def.gunAmmo;
     p.runtime.rockets = p.def.rocketAmmo;
     p.cadenceUntil = 0;
+    p.streak = 0;
+    p.multiKill = 0;
+    p.lastKillAt = -100;
     p.runtime.alive = true;
     p.runtime.invulnerableUntil = this.simTime + 2.2;
     p.collisionCooldown = 0;
@@ -982,6 +1029,7 @@ export class LocalMatch {
       aircraftName: this.player.def.name,
       kills: p.kills,
       deaths: p.deaths,
+      streak: this.player.streak,
       boosting: this.player.controls.boost && p.alive,
       invulnerable: this.simTime < p.invulnerableUntil,
       stalled: p.alive && p.flight.speed < this.player.def.minSpeed * 0.82,

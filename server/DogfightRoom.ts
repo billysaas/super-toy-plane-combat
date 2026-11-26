@@ -6,6 +6,7 @@ import { BALLOON, BALLOON_SPAWNS, pickupForBalloon, type PickupKind } from "../s
 import { createFlightState, integrateFlight, respawnFlight, reverseFlightDirection } from "../shared/flight";
 import { distancePointSegmentSq, pointInsideAnyBox, raycastWorld, raySphere, sphereSweepWorld } from "../shared/collision";
 import { STATIC_BOXES, getSpawnForTeam } from "../shared/worldLayout";
+import { MULTI_KILL_BONUS, MULTI_KILL_WINDOW, multiKillTitle, streakMilestone } from "../shared/streaks";
 import type { Controls, FlightState, KillEvent } from "../shared/types";
 import { upsertRoom, removeRoom, codeExists } from "./RoomRegistry";
 
@@ -30,6 +31,9 @@ interface PlayerSim {
   shield: number;
   shieldUntil: number;
   cadenceUntil: number;
+  streak: number;
+  lastKillAt: number;
+  multiKill: number;
 }
 
 interface SimBalloon {
@@ -203,6 +207,9 @@ export class DogfightRoom extends Room<DogfightState> {
       shield: 0,
       shieldUntil: 0,
       cadenceUntil: 0,
+      streak: 0,
+      lastKillAt: -100,
+      multiKill: 0,
     });
     if (!this.state.hostId) this.state.hostId = client.sessionId;
     this.refreshHosts();
@@ -317,12 +324,16 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.shield = 0;
     sim.state.shieldSeconds = 0;
     sim.state.cadenceSeconds = 0;
+    sim.state.streak = 0;
     sim.state.respawnIn = 0;
     sim.state.boosting = false;
     sim.armor = 0;
     sim.shield = 0;
     sim.shieldUntil = 0;
     sim.cadenceUntil = 0;
+    sim.streak = 0;
+    sim.multiKill = 0;
+    sim.lastKillAt = -100;
     sim.invulnerableUntil = this.simTime + (initial ? 1.2 : 2.4);
     sim.lastHitBy = null;
     sim.lastHitAt = -100;
@@ -418,6 +429,7 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.shield = sim.shield;
     sim.state.shieldSeconds = Math.max(0, sim.shieldUntil - this.simTime);
     sim.state.cadenceSeconds = Math.max(0, sim.cadenceUntil - this.simTime);
+    sim.state.streak = sim.streak;
     sim.state.lastProcessedInput = sim.inputSeq;
   }
 
@@ -622,9 +634,52 @@ export class DogfightRoom extends Room<DogfightState> {
     if (attacker) {
       attacker.state.kills++;
       attacker.state.score += 100;
+      attacker.streak++;
+      const quick = this.simTime - attacker.lastKillAt <= MULTI_KILL_WINDOW;
+      attacker.multiKill = quick ? attacker.multiKill + 1 : 1;
+      attacker.lastKillAt = this.simTime;
+      const milestone = streakMilestone(attacker.streak);
+      if (milestone) {
+        attacker.state.score += milestone.bonusScore;
+        if (milestone.streak === 3) {
+          attacker.cadenceUntil = Math.max(attacker.cadenceUntil, this.simTime + 10);
+          attacker.state.cadenceSeconds = 10;
+        } else if (milestone.streak === 5) {
+          attacker.armor = Math.min(BALLOON.armorMax, attacker.armor + 35);
+          attacker.state.armor = attacker.armor;
+        } else if (milestone.streak === 7) {
+          attacker.state.health = Math.min(attacker.def.maxHealth, attacker.state.health + 45);
+        } else {
+          attacker.state.rockets = Math.min(attacker.def.rocketAmmo + 2, attacker.state.rockets + 2);
+          attacker.armor = Math.min(BALLOON.armorMax, attacker.armor + 20);
+          attacker.state.armor = attacker.armor;
+        }
+        this.broadcast("combatCallout", {
+          playerId: attacker.id,
+          title: milestone.title,
+          subtitle: milestone.subtitle,
+          tone: milestone.tone,
+        });
+      } else if (quick) {
+        const title = multiKillTitle(attacker.multiKill);
+        if (title) {
+          attacker.state.score += MULTI_KILL_BONUS;
+          this.broadcast("combatCallout", {
+            playerId: attacker.id,
+            title,
+            subtitle: `MULTI-KILL BONUS +${MULTI_KILL_BONUS}`,
+            tone: "gold",
+          });
+        }
+      }
+      attacker.state.streak = attacker.streak;
       if (attacker.state.team === "RAF") this.state.scoreRAF++;
       else this.state.scoreAXIS++;
     }
+    target.streak = 0;
+    target.multiKill = 0;
+    target.lastKillAt = -100;
+    target.state.streak = 0;
     const event: KillEvent = {
       killer: attacker?.state.name ?? "FURNITURE",
       victim: target.state.name,

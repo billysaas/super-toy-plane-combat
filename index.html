@@ -175,7 +175,7 @@
           <div class="panel-title">02 — TURN FIGHT</div>
           <p>Pitch and roll with <b>WASD</b> or the mouse. Bank hard, then add <b>Q / E</b> rudder to tighten the turn. The yaw rate is lower than the roll rate — use both.</p>
           <div class="panel-title">03 — SHOOT</div>
-          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. Rockets track whatever you have locked in your sights.</p>
+          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. Rockets track whatever you have locked in your sights. Chain kills without dying: three in a row refills rapid fire, five adds armour, seven repairs your hull, and ten reloads your rockets.</p>
           <div class="panel-title">04 — SURVIVE</div>
           <p>Health regenerates only when you respawn. Watch the smoke trail and break off when your wings are red. Fly through windows, under the dining table, and around the garden to lose a tail. Shoot down balloons and fly through their drops — the cyan shield soaks damage for ten seconds.</p>
         </div>
@@ -314,6 +314,10 @@
         <div id="hitmarker" class="hitmarker"></div>
       </div>
       <div id="kill-marker" class="kill-marker">BANDIT DOWN</div>
+      <div id="combat-callout" class="combat-callout hidden" aria-live="polite">
+        <div id="combat-callout-title" class="combat-callout-title">KILLING SPREE</div>
+        <div id="combat-callout-sub" class="combat-callout-sub">RAPID FIRE · 10S</div>
+      </div>
       <div id="hud-warning" class="hud-warning hidden"><span id="hud-warning-text">AIRFRAME DAMAGED</span></div>
       <div class="cockpit-overlay">
         <div class="cockpit-arch"></div>
@@ -339,6 +343,7 @@
           <div class="weapon-row"><span>ROCKETS</span><b id="rocket-value">×4</b></div>
           <div id="cadence-row" class="weapon-row"><span>RAPID</span><b id="cadence-value">--</b></div>
           <div id="shield-row" class="weapon-row shield"><span>SHIELD</span><b id="shield-value">--</b></div>
+          <div id="streak-row" class="weapon-row streak"><span>STREAK</span><b id="streak-value">0</b></div>
           <div class="mini-footer"><span id="camera-label">CHASE CAM</span><span id="score-kd">0 / 0</span></div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import {
   type Team,
 } from "../../shared/config";
 import type { HudData, MatchResult, ScoreRow } from "../game/LocalMatch";
+import type { CalloutTone } from "../../shared/streaks";
 import type { KillEvent } from "../../shared/types";
 
 export type ScreenName = "menu" | "solo" | "hangar" | "settings" | "tutorial" | "multiplayer" | "lobby" | "pause";
@@ -113,6 +114,7 @@ export class UIManager {
   private radarTick = 0;
   private lastHit = 0;
   private toastTimer = 0;
+  private calloutTimer = 0;
   private chatTimers: number[] = [];
   private killTimers: number[] = [];
   private isTouch = false;
@@ -234,6 +236,7 @@ export class UIManager {
     this.hideLeaveConfirm();
     this.setMusicToggleVisible(false);
     el("hud").classList.remove("hidden");
+    el("combat-callout").classList.add("hidden");
     this.clearFeeds();
     this.lastKills = 0;
     this.showToast("MISSION START · GOOD HUNTING", 2.6);
@@ -446,6 +449,16 @@ export class UIManager {
     this.toastTimer = window.setTimeout(() => toast.classList.add("hidden"), seconds * 1000);
   }
 
+  showCombatCallout(title: string, subtitle: string, tone: CalloutTone): void {
+    const node = el("combat-callout");
+    el("combat-callout-title").textContent = title;
+    el("combat-callout-sub").textContent = subtitle;
+    node.className = `combat-callout ${tone}`;
+    void node.offsetWidth;
+    window.clearTimeout(this.calloutTimer);
+    this.calloutTimer = window.setTimeout(() => node.classList.add("hidden"), 2500);
+  }
+
   addChat(name: string, text: string, team: Team | "SYSTEM"): void {
     const feed = el("chat-feed");
     const line = document.createElement("div");
@@ -529,6 +542,9 @@ export class UIManager {
     el("cadence-row").classList.toggle("active", data.cadence > 0);
     el("shield-value").textContent = data.shield > 0 ? `${Math.ceil(data.shield)} · ${Math.ceil(data.shieldSeconds)}S` : "--";
     el("shield-row").classList.toggle("active", data.shield > 0);
+    el("streak-value").textContent = String(data.streak);
+    el("streak-row").classList.toggle("active", data.streak >= 2);
+    el("streak-row").classList.toggle("hot", data.streak >= 5);
     el("boost-fill").style.width = `${Math.max(0, Math.min(100, data.boost))}%`;
     el("boost-value").textContent = String(Math.round(data.boost));
     el("throttle-fill").style.width = `${Math.max(0, Math.min(100, data.throttle * 100))}%`;
