@@ -2676,6 +2676,52 @@ select {
   font-weight: 400;
 }
 
+.results-medals {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.medal {
+  padding: 5px 10px;
+  color: var(--yellow);
+  font-family: var(--pixel);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  background: rgba(248, 200, 64, 0.09);
+  border: 1px solid rgba(248, 200, 64, 0.5);
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.medal.no-medal {
+  color: #7f92a7;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(160, 180, 200, 0.22);
+}
+
+.results-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  margin-bottom: 18px;
+  color: #92a8bc;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.results-breakdown span {
+  white-space: nowrap;
+}
+
+.results-breakdown b {
+  color: var(--cream);
+  font-weight: 400;
+}
+
 .results-buttons {
   display: flex;
   gap: 9px;

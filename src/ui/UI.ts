@@ -13,6 +13,7 @@ import {
 } from "../../shared/config";
 import type { HudData, MatchResult, ScoreRow } from "../game/LocalMatch";
 import { PICKUP_INFO } from "../../shared/powerups";
+import { shotAccuracy } from "../../shared/medals";
 import type { CalloutTone } from "../../shared/streaks";
 import type { KillEvent } from "../../shared/types";
 
@@ -309,6 +310,23 @@ export class UIManager {
       scoreline.innerHTML = `<span class="blue">${result.playerKills} KILLS</span><span class="dash">·</span><span class="red">${result.playerDeaths} LOSSES</span>`;
     }
     el("results-stats").innerHTML = `<span>KILLS <b>${result.playerKills}</b></span><span>LOSSES <b>${result.playerDeaths}</b></span><span>BANDITS <b>${Math.max(0, result.rows.length - 1)}</b></span>`;
+    const medals = result.medals ?? [];
+    el("results-medals").innerHTML = medals.length
+      ? medals.map((medal) => `<span class="medal">${option(medal)}</span>`).join("")
+      : `<span class="medal no-medal">NO MEDALS AWARDED</span>`;
+    const stats = result.stats;
+    if (stats) {
+      const accuracy = stats.shotsFired > 0 ? `${Math.round(shotAccuracy(stats) * 100)}%` : "--";
+      el("results-breakdown").innerHTML = `
+        <span>ACCURACY <b>${accuracy}</b></span>
+        <span>DAMAGE <b>${Math.round(stats.damageDealt)}</b></span>
+        <span>ROCKETS <b>${stats.rocketHits}/${stats.rocketsFired}</b></span>
+        <span>BALLOONS <b>${stats.balloonsPopped}</b></span>
+        <span>BEST STREAK <b>×${stats.bestStreak}</b></span>
+        <span>LONGEST LIFE <b>${formatTime(stats.longestLife)}</b></span>`;
+    } else {
+      el("results-breakdown").innerHTML = "";
+    }
     el("results-table").innerHTML = this.scoreTableHtml(result.rows, result.mode);
     this.hideHud();
   }
