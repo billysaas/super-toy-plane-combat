@@ -17,6 +17,8 @@ import {
   IcosahedronGeometry,
   InstancedMesh,
   LinearFilter,
+  Line,
+  LineBasicMaterial,
   Material,
   Matrix4,
   Mesh,
@@ -32,6 +34,8 @@ import {
   Scene,
   ShaderMaterial,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
   SRGBColorSpace,
   Vector3,
 } from "three";
@@ -39,7 +43,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { AssetStore } from "./AssetStore";
 import type { Quality } from "../../shared/config";
 import { WORLD } from "../../shared/config";
-import { FURNITURE, STATIC_BOXES, TREES, WALL_SPECS, type BoxMaterial, type StaticBox } from "../../shared/worldLayout";
+import { FURNITURE, STATIC_BOXES, TOY_BLOCKS, TREES, WALL_SPECS, type BoxMaterial, type StaticBox } from "../../shared/worldLayout";
 
 function seeded(seed: number): () => number {
   let s = seed >>> 0;
@@ -108,6 +112,41 @@ function woodTexture(): CanvasTexture {
   }, 32, 23);
 }
 
+function floorWoodTexture(): CanvasTexture {
+  return makeCanvasTexture(256, (ctx, size) => {
+    const rng = seeded(19);
+    ctx.fillStyle = "#8d6038";
+    ctx.fillRect(0, 0, size, size);
+    const plankH = 28;
+    for (let y = 0; y < size; y += plankH) {
+      const base = 151 + Math.floor(rng() * 30);
+      ctx.fillStyle = `rgb(${base + 20},${base - 14},${base - 52})`;
+      ctx.fillRect(0, y + 1, size, plankH - 2);
+      ctx.fillStyle = "rgba(56,30,15,.42)";
+      ctx.fillRect(0, y, size, 2);
+      for (let k = 0; k < 5; k++) {
+        ctx.fillStyle = `rgba(92,52,24,${0.08 + rng() * 0.12})`;
+        const yy = y + 4 + Math.floor(rng() * (plankH - 8));
+        ctx.fillRect(0, yy, size, 1);
+      }
+      if (rng() > 0.55) {
+        const kx = Math.floor(rng() * size);
+        const ky = y + plankH * 0.5;
+        ctx.fillStyle = "rgba(62,33,16,.32)";
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, 3 + rng() * 4, 1.5 + rng() * 2, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const seams = 2 + Math.floor(rng() * 2);
+      for (let s = 0; s < seams; s++) {
+        const x = Math.floor((s + rng() * 0.5) * (size / seams));
+        ctx.fillStyle = "rgba(50,28,14,.36)";
+        ctx.fillRect(x, y + 2, 2, plankH - 3);
+      }
+    }
+  }, 18, 14);
+}
+
 function stoneTexture(): CanvasTexture {
   return makeCanvasTexture(128, (ctx, size) => {
     ctx.fillStyle = "#a7957f";
@@ -160,12 +199,31 @@ function wallTexture(): CanvasTexture {
     ctx.fillStyle = "#e2c8a4";
     ctx.fillRect(0, 0, size, size);
     const rng = seeded(93);
+    // Slim wallpaper stripes with a tiny repeating motif.
+    for (let x = 0; x < size; x += 16) {
+      ctx.fillStyle = "rgba(255,248,225,.09)";
+      ctx.fillRect(x + 1, 0, 7, size);
+      ctx.fillStyle = "rgba(113,80,48,.05)";
+      ctx.fillRect(x + 9, 0, 1, size);
+    }
+    for (let y = 12; y < size; y += 32) {
+      for (let x = 8; x < size; x += 32) {
+        ctx.fillStyle = "rgba(120,83,45,.075)";
+        ctx.beginPath();
+        ctx.moveTo(x + 3, y);
+        ctx.lineTo(x + 6, y + 4);
+        ctx.lineTo(x + 3, y + 8);
+        ctx.lineTo(x, y + 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
     for (let i = 0; i < 300; i++) {
       const c = rng() > 0.5 ? "rgba(255,246,223,.16)" : "rgba(137,101,63,.07)";
       ctx.fillStyle = c;
       ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 2);
     }
-  }, 5, 3, false);
+  }, 7, 4, false);
 }
 
 const materialsStore: {
@@ -185,12 +243,13 @@ const materialsStore: {
 function buildMaterials(): void {
   const wallMap = wallTexture();
   const woodMap = woodTexture();
+  const floorMap = floorWoodTexture();
   const stoneMap = stoneTexture();
   const roofMap = roofTexture();
   materialsStore.wall = new MeshStandardMaterial({ color: 0xf1e1c9, roughness: 0.94, map: wallMap });
   materialsStore.exterior = new MeshStandardMaterial({ color: 0xd7b58f, roughness: 0.96, map: wallMap });
   materialsStore.trim = new MeshStandardMaterial({ color: 0x6a472e, roughness: 0.8 });
-  materialsStore.floor = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.72, metalness: 0.04, map: woodMap });
+  materialsStore.floor = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.72, metalness: 0.04, map: floorMap });
   materialsStore.roof = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: roofMap });
   materialsStore.stone = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, map: stoneMap });
   materialsStore.wood = new MeshStandardMaterial({ color: 0x8f6542, roughness: 0.82, map: woodMap });
@@ -243,6 +302,13 @@ export class Environment {
   private dust?: Points;
   private dustUniforms?: { uTime: { value: number }; uPixelRatio: { value: number } };
   private lightShafts?: Group;
+  private butterflies: Array<{ group: Group; left: Mesh; right: Mesh; base: Vector3; phase: number }> = [];
+  private birdFlock?: Group;
+  private birdWings: Mesh[] = [];
+  private kite?: Group;
+  private kiteString?: Line;
+  private kiteAnchor = new Vector3(21, 0.4, 56);
+  private chimneySmoke: Sprite[] = [];
   private contactShadowTexture?: CanvasTexture;
   private time = 0;
 
@@ -266,10 +332,14 @@ export class Environment {
     this.buildFireplace();
     this.buildLighting();
     this.buildFurniture();
+    this.buildToyBlocks();
     this.buildGarden();
     this.buildClouds();
     this.buildDecor();
     this.buildAtmosphere();
+    this.buildGardenLife();
+    this.buildExteriorDetails();
+    this.buildGardenFurniture();
     this.setQuality(this.quality);
   }
 
@@ -305,7 +375,8 @@ export class Environment {
           float sun = pow(max(dot(vPos, sunDir), 0.0), 150.0);
           float halo = pow(max(dot(vPos, sunDir), 0.0), 14.0) * 0.32;
           col += vec3(1.0, 0.85, 0.55) * (sun * 1.8 + halo);
-          gl_FragColor = vec4(col, 1.0);
+          float dither = (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012;
+          gl_FragColor = vec4(col + dither, 1.0);
         }
       `,
     });
@@ -340,13 +411,14 @@ export class Environment {
     path2.position.set(64, 0.03, 36);
     g.add(path2);
 
-    const floorPlane = new Mesh(new PlaneGeometry(95, 71), new MeshStandardMaterial({ color: 0xffffff, map: woodTexture(), roughness: 0.84 }));
+    const floorMap = materialsStore.floor?.map ?? woodTexture();
+    const floorPlane = new Mesh(new PlaneGeometry(95, 71), new MeshStandardMaterial({ color: 0xffffff, map: floorMap, roughness: 0.78 }));
     floorPlane.rotation.x = -Math.PI / 2;
     floorPlane.position.set(0, 0.36, 0);
     floorPlane.receiveShadow = true;
     g.add(floorPlane);
 
-    const upperMat = new MeshStandardMaterial({ color: 0xffffff, map: woodTexture(), roughness: 0.84 });
+    const upperMat = new MeshStandardMaterial({ color: 0xffffff, map: floorMap, roughness: 0.8 });
     const upperSections: Array<[number, number, number, number]> = [
       [-6, -4, -36, 36], [10, 48, -36, 36], [-4, 10, -36, 8], [-4, 10, 24, 36],
     ];
@@ -408,7 +480,50 @@ export class Environment {
     trimBoxes.push({ cx: 0, cy: 0.55, cz: -35.2, hx: 47, hy: 0.18, hz: 0.15, kind: "prop", material: "trim" });
     g.add(mergedBoxMesh(trimBoxes, baseTrimMat));
     g.add(this.doorFrames());
+    g.add(this.buildWallTrim());
     return g;
+  }
+
+  private buildWallTrim(): Mesh {
+    const boxes: StaticBox[] = [];
+    const addSpan = (spec: (typeof WALL_SPECS)[number], u0: number, u1: number, cy: number, hy: number, bothSides: boolean) => {
+      if (u1 - u0 < 0.12) return;
+      const cu = (u0 + u1) / 2;
+      const offsets = bothSides ? [-(spec.thickness / 2 + 0.08), spec.thickness / 2 + 0.08] : [spec.thickness / 2 + 0.08];
+      for (const offset of offsets) {
+        if (spec.axis === "x") {
+          boxes.push({ cx: cu, cy, cz: spec.at + offset, hx: (u1 - u0) / 2, hy, hz: 0.07, kind: "prop", material: "trim" });
+        } else {
+          boxes.push({ cx: spec.at + offset, cy, cz: cu, hx: 0.07, hy, hz: (u1 - u0) / 2, kind: "prop", material: "trim" });
+        }
+      }
+    };
+    for (const spec of WALL_SPECS) {
+      const gaps = spec.openings
+        .filter((opening) => opening.y0 <= spec.y0 + 0.6)
+        .map((opening) => [opening.u0, opening.u1] as [number, number])
+        .sort((a, b) => a[0] - b[0]);
+      let cursor = spec.from;
+      const spans: Array<[number, number]> = [];
+      for (const [u0, u1] of gaps) {
+        const start = Math.max(spec.from, u0);
+        const end = Math.min(spec.to, u1);
+        if (start > cursor) spans.push([cursor, start]);
+        cursor = Math.max(cursor, end);
+      }
+      if (cursor < spec.to) spans.push([cursor, spec.to]);
+      for (const [u0, u1] of spans) {
+        addSpan(spec, u0, u1, spec.y0 + 0.35, 0.35, true);
+        if (spec.material === "interior") {
+          addSpan(spec, u0, u1, spec.y0 + 2.5, 0.11, true);
+          if (spec.y1 - spec.y0 > 7) addSpan(spec, u0, u1, spec.y1 - 0.38, 0.16, true);
+        }
+      }
+    }
+    const trim = materialsStore.trim ?? new MeshStandardMaterial({ color: 0x6a472e });
+    const mesh = mergedBoxMesh(boxes, trim);
+    this.shadowMeshes.push(mesh);
+    return mesh;
   }
 
   private doorFrames(): Group {
@@ -614,8 +729,42 @@ export class Environment {
     }
   }
 
-  private buildGarden(): void {
-    const stoneMat = materialsStore.stone ?? new MeshStandardMaterial({ color: 0xa8957f });
+  private buildToyBlocks(): void {
+    for (const block of TOY_BLOCKS) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+      const hex = `#${block.color.toString(16).padStart(6, "0")}`;
+      if (ctx) {
+        ctx.fillStyle = hex;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.strokeStyle = "rgba(255,255,255,.25)";
+        ctx.lineWidth = 7;
+        ctx.strokeRect(7, 7, 114, 114);
+        ctx.fillStyle = "rgba(0,0,0,.12)";
+        ctx.fillRect(14, 14, 100, 100);
+        ctx.fillStyle = "#fff8df";
+        ctx.font = "bold 78px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(0,0,0,.38)";
+        ctx.shadowOffsetY = 4;
+        ctx.fillText(block.label, 64, 68);
+      }
+      const tex = new CanvasTexture(canvas);
+      tex.colorSpace = SRGBColorSpace;
+      tex.magFilter = NearestFilter;
+      const mat = new MeshStandardMaterial({ map: tex, roughness: 0.74, metalness: 0.03 });
+      const mesh = new Mesh(new BoxGeometry(block.size * 2, block.size * 2, block.size * 2), mat);
+      mesh.position.set(block.x, block.baseY + block.size, block.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.furnitureGroup.add(mesh);
+      this.addContactShadow(block.x, block.baseY + 0.006, block.z, block.size * 2.4, 0.32);
+    }
+  }
+
+  private buildGarden(): void {    const stoneMat = materialsStore.stone ?? new MeshStandardMaterial({ color: 0xa8957f });
     const g = new Group();
     const fountain = new Group();
     const base = new Mesh(new CylinderGeometry(12, 12, 1.2, 20), stoneMat);
@@ -794,22 +943,431 @@ export class Environment {
     void artCanvases;
   }
 
+  private buildExteriorDetails(): void {
+    const stone = materialsStore.stone ?? new MeshStandardMaterial({ color: 0xa8957f });
+
+    const chimney = new Group();
+    const stack = new Mesh(new BoxGeometry(4.2, 9, 4.8), stone);
+    stack.position.set(-44, 27.8, 0);
+    stack.castShadow = true;
+    stack.receiveShadow = true;
+    chimney.add(stack);
+    const cap = new Mesh(new BoxGeometry(5.2, 0.9, 5.8), stone);
+    cap.position.set(-44, 32.3, 0);
+    cap.castShadow = true;
+    chimney.add(cap);
+    const flue = new Mesh(new BoxGeometry(2.4, 0.8, 2.8), new MeshBasicMaterial({ color: 0x24160f }));
+    flue.position.set(-44, 32.65, 0);
+    chimney.add(flue);
+    this.decorations.add(chimney);
+
+    const fasciaMat = new MeshStandardMaterial({ color: 0xd7c39d, roughness: 0.76 });
+    const fascia = new Group();
+    const southFascia = new Mesh(new BoxGeometry(97, 0.55, 0.42), fasciaMat);
+    southFascia.position.set(0, 23.35, 36.4);
+    const northFascia = new Mesh(new BoxGeometry(97, 0.55, 0.42), fasciaMat);
+    northFascia.position.set(0, 23.35, -36.4);
+    const eastFascia = new Mesh(new BoxGeometry(0.42, 0.55, 73), fasciaMat);
+    eastFascia.position.set(48.4, 23.35, 0);
+    const westFascia = new Mesh(new BoxGeometry(0.42, 0.55, 73), fasciaMat);
+    westFascia.position.set(-48.4, 23.35, 0);
+    fascia.add(southFascia, northFascia, eastFascia, westFascia);
+    this.decorations.add(fascia);
+
+    const spoutMat = new MeshStandardMaterial({ color: 0x56606a, roughness: 0.55, metalness: 0.28 });
+    const spoutGeo = new CylinderGeometry(0.16, 0.16, 22.4, 6);
+    for (const [x, z] of [[-47.2, 36.6], [47.2, 36.6], [-47.2, -36.6], [47.2, -36.6]]) {
+      const spout = new Mesh(spoutGeo, spoutMat);
+      spout.position.set(x, 11.2, z);
+      spout.castShadow = true;
+      this.decorations.add(spout);
+    }
+
+    const smokeCanvas = document.createElement("canvas");
+    smokeCanvas.width = smokeCanvas.height = 128;
+    const smokeCtx = smokeCanvas.getContext("2d");
+    if (smokeCtx) {
+      const grad = smokeCtx.createRadialGradient(64, 64, 3, 64, 64, 62);
+      grad.addColorStop(0, "rgba(235,230,220,.9)");
+      grad.addColorStop(0.45, "rgba(220,215,205,.5)");
+      grad.addColorStop(1, "rgba(210,205,195,0)");
+      smokeCtx.fillStyle = grad;
+      smokeCtx.fillRect(0, 0, 128, 128);
+    }
+    const smokeTexture = new CanvasTexture(smokeCanvas);
+    smokeTexture.colorSpace = SRGBColorSpace;
+    for (let i = 0; i < 9; i++) {
+      const sprite = new Sprite(new SpriteMaterial({
+        map: smokeTexture,
+        color: 0xd8d2c6,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }));
+      sprite.position.set(-44, 33, 0);
+      this.chimneySmoke.push(sprite);
+      this.scene.add(sprite);
+    }
+
+    const south = WALL_SPECS.find((spec) => spec.axis === "x" && spec.at === 36);
+    if (!south) return;
+    const shutterCanvas = document.createElement("canvas");
+    shutterCanvas.width = 64;
+    shutterCanvas.height = 128;
+    const shutterCtx = shutterCanvas.getContext("2d");
+    if (shutterCtx) {
+      shutterCtx.fillStyle = "#4d6c8e";
+      shutterCtx.fillRect(0, 0, 64, 128);
+      shutterCtx.fillStyle = "#3b5370";
+      for (let y = 8; y < 128; y += 12) shutterCtx.fillRect(4, y, 56, 5);
+      shutterCtx.strokeStyle = "#2d4058";
+      shutterCtx.lineWidth = 4;
+      shutterCtx.strokeRect(2, 2, 60, 124);
+    }
+    const shutterTexture = new CanvasTexture(shutterCanvas);
+    shutterTexture.colorSpace = SRGBColorSpace;
+    const shutterMat = new MeshStandardMaterial({ map: shutterTexture, roughness: 0.9 });
+    const boxMat = new MeshStandardMaterial({ color: 0xa85f3e, roughness: 0.92 });
+    const soilMat = new MeshStandardMaterial({ color: 0x3e2a1b, roughness: 1 });
+    const flowerGeo = new IcosahedronGeometry(0.26, 0);
+    const flowerMats = [0xffd45c, 0xff917d, 0xf0b6c2, 0xe8b5ff].map((c) => new MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true }));
+    for (const op of south.openings) {
+      if (op.door) continue;
+      const mid = (op.u0 + op.u1) / 2;
+      const height = op.y1 - op.y0;
+      for (const side of [-1, 1]) {
+        const x = side < 0 ? op.u0 - 0.55 : op.u1 + 0.55;
+        const shutter = new Mesh(new BoxGeometry(0.72, height * 0.95, 0.12), shutterMat);
+        shutter.position.set(x, (op.y0 + op.y1) / 2, 36.72);
+        shutter.castShadow = true;
+        this.decorations.add(shutter);
+      }
+      if (op.y0 > 3) {
+        const width = op.u1 - op.u0;
+        const box = new Mesh(new BoxGeometry(width * 0.84, 0.48, 0.7), boxMat);
+        box.position.set(mid, op.y0 - 0.32, 36.82);
+        box.castShadow = true;
+        this.decorations.add(box);
+        const soil = new Mesh(new BoxGeometry(width * 0.76, 0.12, 0.56), soilMat);
+        soil.position.set(mid, op.y0 - 0.08, 36.82);
+        this.decorations.add(soil);
+        for (let i = 0; i < 5; i++) {
+          const x = mid + (i - 2) * width * 0.15;
+          const stem = new Mesh(new CylinderGeometry(0.04, 0.05, 0.55, 4), new MeshStandardMaterial({ color: 0x4b702f }));
+          stem.position.set(x, op.y0 + 0.16, 36.82);
+          const bloom = new Mesh(flowerGeo, flowerMats[i % flowerMats.length]);
+          bloom.position.set(x, op.y0 + 0.45, 36.82);
+          bloom.scale.setScalar(0.8 + (i % 2) * 0.3);
+          this.decorations.add(stem, bloom);
+        }
+      }
+    }
+
+    const lanternMat = new MeshStandardMaterial({ color: 0x3b3b36, roughness: 0.6, metalness: 0.35 });
+    const glowMat = new MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffb75c, emissiveIntensity: 1.2 });
+    for (const op of south.openings) {
+      if (!op.door) continue;
+      for (const x of [op.u0 - 0.85, op.u1 + 0.85]) {
+        const lantern = new Group();
+        const cage = new Mesh(new BoxGeometry(0.48, 0.9, 0.48), lanternMat);
+        const glow = new Mesh(new BoxGeometry(0.3, 0.46, 0.3), glowMat);
+        lantern.add(cage, glow);
+        lantern.position.set(x, 7.4, 36.72);
+        this.decorations.add(lantern);
+        const light = new PointLight(0xffc37a, 55, 16, 1.7);
+        light.position.set(x, 7.4, 37.2);
+        this.lampLights.push(light);
+        this.scene.add(light);
+      }
+    }
+
+    const cupola = new Group();
+    const cupolaMat = new MeshStandardMaterial({ color: 0xd7c39d, roughness: 0.82 });
+    const cupolaBase = new Mesh(new BoxGeometry(6, 1.2, 6), cupolaMat);
+    cupolaBase.position.y = 24.1;
+    cupola.add(cupolaBase);
+    for (const [x, z] of [[-2.4, -2.4], [2.4, -2.4], [-2.4, 2.4], [2.4, 2.4]]) {
+      const post = new Mesh(new BoxGeometry(0.42, 2.2, 0.42), cupolaMat);
+      post.position.set(x, 25.6, z);
+      cupola.add(post);
+    }
+    const cupolaCap = new Mesh(new ConeGeometry(5.2, 3.2, 4), new MeshStandardMaterial({ color: 0x9d4436, roughness: 0.9, flatShading: true }));
+    cupolaCap.position.y = 28.3;
+    cupolaCap.rotation.y = Math.PI / 4;
+    cupola.add(cupolaCap);
+    const cupolaFinial = new Mesh(new CylinderGeometry(0.08, 0.08, 2.2, 5), new MeshStandardMaterial({ color: 0x3d3a30, roughness: 0.5, metalness: 0.4 }));
+    cupolaFinial.position.y = 30.8;
+    cupola.add(cupolaFinial);
+    cupola.position.set(24, 0, -18);
+    cupola.traverse((obj) => {
+      if (obj instanceof Mesh) obj.castShadow = true;
+    });
+    this.decorations.add(cupola);
+
+    const frameMat = new MeshStandardMaterial({ color: 0x6a472e, roughness: 0.82 });
+    const skylight = new Group();
+    const front = new Mesh(new BoxGeometry(19.5, 0.9, 0.9), frameMat);
+    front.position.set(-23, 23.7, 8.4);
+    const back = new Mesh(new BoxGeometry(19.5, 0.9, 0.9), frameMat);
+    back.position.set(-23, 23.7, -8.4);
+    const left = new Mesh(new BoxGeometry(0.9, 0.9, 17.7), frameMat);
+    left.position.set(-32.4, 23.7, 0);
+    const right = new Mesh(new BoxGeometry(0.9, 0.9, 17.7), frameMat);
+    right.position.set(-13.6, 23.7, 0);
+    skylight.add(front, back, left, right);
+    for (const [x, z] of [[5, -24], [29, -19], [33, 22]]) {
+      const vent = new Mesh(new BoxGeometry(1.5, 1.4, 1.5), new MeshStandardMaterial({ color: 0x9b968a, roughness: 0.8 }));
+      vent.position.set(x, 23.9, z);
+      vent.castShadow = true;
+      const ventCap = new Mesh(new BoxGeometry(2.1, 0.35, 2.1), new MeshStandardMaterial({ color: 0x6e6a62, roughness: 0.7 }));
+      ventCap.position.set(x, 24.7, z);
+      this.decorations.add(vent, ventCap);
+    }
+    this.decorations.add(skylight);
+  }
+
+  private buildGardenFurniture(): void {
+    const wood = materialsStore.wood ?? new MeshStandardMaterial({ color: 0x8f6542 });
+    const stone = materialsStore.stone ?? new MeshStandardMaterial({ color: 0xa8957f });
+    const bench = new Group();
+    for (let i = 0; i < 4; i++) {
+      const slat = new Mesh(new BoxGeometry(4.6, 0.22, 0.52), wood);
+      slat.position.set(0, 0.7, -0.7 + i * 0.48);
+      slat.castShadow = true;
+      bench.add(slat);
+    }
+    for (let i = 0; i < 3; i++) {
+      const slat = new Mesh(new BoxGeometry(4.6, 0.22, 0.34), wood);
+      slat.position.set(0, 1.38 + i * 0.45, 0.78);
+      slat.castShadow = true;
+      bench.add(slat);
+    }
+    for (const x of [-1.9, 1.9]) {
+      const leg = new Mesh(new BoxGeometry(0.32, 1.55, 0.32), wood);
+      leg.position.set(x, 0.38, 0.2);
+      bench.add(leg);
+      const back = new Mesh(new BoxGeometry(0.28, 2.2, 0.28), wood);
+      back.position.set(x, 1.1, 0.78);
+      back.rotation.x = -0.14;
+      bench.add(back);
+    }
+    bench.position.set(32, 0.02, 46);
+    bench.rotation.y = 0.15;
+    this.decorations.add(bench);
+    this.addContactShadow(32, 0.04, 46, 3.6, 0.3);
+
+    const bath = new Group();
+    const plinth = new Mesh(new CylinderGeometry(0.55, 0.82, 2.2, 8), stone);
+    plinth.position.y = 1.1;
+    const basin = new Mesh(new CylinderGeometry(1.6, 1.2, 0.42, 12), stone);
+    basin.position.y = 2.35;
+    const water = new Mesh(new CircleGeometry(1.35, 16), new MeshStandardMaterial({ color: 0x6cc9e8, roughness: 0.12, metalness: 0.2, transparent: true, opacity: 0.78 }));
+    water.rotation.x = -Math.PI / 2;
+    water.position.y = 2.58;
+    bath.add(plinth, basin, water);
+    bath.position.set(52, 0.02, 10);
+    bath.traverse((obj) => {
+      if (obj instanceof Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+    this.decorations.add(bath);
+    this.addContactShadow(52, 0.04, 10, 2.6, 0.3);
+
+    const stoneGeo = new CylinderGeometry(1.15, 1.3, 0.12, 7);
+    const slabMatrices: Matrix4[] = [];
+    for (let i = 0; i < 14; i++) {
+      const t = i / 13;
+      const x = 12 + t * 56 + Math.sin(t * Math.PI) * 7;
+      const z = 52 - t * 92;
+      const m = new Matrix4();
+      m.makeRotationY(t * 3.1);
+      m.scale(new Vector3(1 + (i % 3) * 0.12, 1, 0.8 + (i % 2) * 0.15));
+      m.setPosition(x, 0.07, z);
+      slabMatrices.push(m);
+    }
+    const slabs = new InstancedMesh(stoneGeo, stone, slabMatrices.length);
+    slabMatrices.forEach((m, i) => slabs.setMatrixAt(i, m));
+    slabs.instanceMatrix.needsUpdate = true;
+    slabs.receiveShadow = true;
+    this.decorations.add(slabs);
+
+    const potMat = new MeshStandardMaterial({ color: 0xb5653f, roughness: 0.92 });
+    const bushMat = new MeshStandardMaterial({ color: 0x416a3e, roughness: 1, flatShading: true });
+    const bushGeo = new IcosahedronGeometry(1.2, 0);
+    const bloomGeo = new IcosahedronGeometry(0.32, 0);
+    const bloomMats = [0xffd45c, 0xff917d, 0xf0b6c2].map((c) => new MeshStandardMaterial({ color: c, roughness: 0.9, flatShading: true }));
+    const planters: Array<[number, number]> = [[44, 38], [58, 32], [63, 47], [-14, 44], [-27, 51]];
+    for (let p = 0; p < planters.length; p++) {
+      const [x, z] = planters[p];
+      const pot = new Mesh(new CylinderGeometry(0.9, 0.65, 1.2, 8), potMat);
+      pot.position.set(x, 0.62, z);
+      pot.castShadow = true;
+      const shrub = new Mesh(bushGeo, bushMat);
+      shrub.position.set(x, 1.7, z);
+      shrub.scale.set(0.75, 0.72, 0.75);
+      shrub.castShadow = true;
+      this.decorations.add(pot, shrub);
+      for (let i = 0; i < 3; i++) {
+        const bloom = new Mesh(bloomGeo, bloomMats[(p + i) % bloomMats.length]);
+        bloom.position.set(x + Math.cos(i * 2.1) * 0.7, 2.1 + (i % 2) * 0.2, z + Math.sin(i * 2.1) * 0.7);
+        this.decorations.add(bloom);
+      }
+      this.addContactShadow(x, 0.04, z, 1.8, 0.28);
+    }
+
+    const bedSoil = new MeshStandardMaterial({ color: 0x4a3220, roughness: 1 });
+    const stemGeo = new CylinderGeometry(0.045, 0.06, 1, 4);
+    const bedBloomGeo = new IcosahedronGeometry(0.24, 0);
+    const bedFlowerMats = [0xffd45c, 0xff917d, 0xf0b6c2, 0xe8b5ff, 0x86e5ff];
+    const flowerRng = seeded(812);
+    const beds: Array<[number, number]> = [[-24, 38.4], [0, 38.4], [24, 38.4], [47, 26], [42, -2]];
+    const stemCount = beds.length * 11;
+    const stems = new InstancedMesh(stemGeo, new MeshStandardMaterial({ color: 0x4b702f, roughness: 0.9 }), stemCount);
+    const blooms = new InstancedMesh(bedBloomGeo, new MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, flatShading: true }), stemCount);
+    const stemMatrix = new Matrix4();
+    const bloomMatrix = new Matrix4();
+    const color = new Color();
+    let flowerIndex = 0;
+    for (let b = 0; b < beds.length; b++) {
+      const [bx, bz] = beds[b];
+      const soil = new Mesh(new BoxGeometry(7.4, 0.28, 1.4), bedSoil);
+      soil.position.set(bx, 0.15, bz);
+      soil.receiveShadow = true;
+      this.decorations.add(soil);
+      for (let i = 0; i < 11; i++) {
+        const x = bx - 3.2 + (i / 10) * 6.4 + (flowerRng() - 0.5) * 0.35;
+        const z = bz + (flowerRng() - 0.5) * 0.75;
+        const h = 0.55 + flowerRng() * 0.65;
+        stemMatrix.makeScale(1, h, 1).setPosition(x, 0.3 + h * 0.5, z);
+        stems.setMatrixAt(flowerIndex, stemMatrix);
+        const bloomScale = 0.75 + flowerRng() * 0.55;
+        bloomMatrix.makeScale(bloomScale, bloomScale, bloomScale).setPosition(x, 0.34 + h, z);
+        blooms.setMatrixAt(flowerIndex, bloomMatrix);
+        blooms.setColorAt(flowerIndex, color.setHex(bedFlowerMats[(i + b) % bedFlowerMats.length]));
+        flowerIndex++;
+      }
+    }
+    stems.instanceMatrix.needsUpdate = true;
+    blooms.instanceMatrix.needsUpdate = true;
+    if (blooms.instanceColor) blooms.instanceColor.needsUpdate = true;
+    this.decorations.add(stems, blooms);
+  }
+
+  private buildGardenLife(): void {
+    const rng = seeded(271);
+    const colors = [0xffd45c, 0xff917d, 0x86e5ff, 0xf0b6c2, 0xa7e37a, 0xe8b5ff];
+    const wingGeo = new BoxGeometry(0.56, 0.045, 0.34);
+    const bodyGeo = new BoxGeometry(0.1, 0.07, 0.46);
+    for (let i = 0; i < 8; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const base = new Vector3(side * (49 + rng() * 5), 2.4 + rng() * 1.8, -20 + rng() * 70);
+      const group = new Group();
+      const mat = new MeshStandardMaterial({ color: colors[i % colors.length], roughness: 0.8 });
+      const left = new Mesh(wingGeo, mat);
+      left.position.x = -0.28;
+      const right = new Mesh(wingGeo, mat);
+      right.position.x = 0.28;
+      const body = new Mesh(bodyGeo, new MeshStandardMaterial({ color: 0x2f2a22, roughness: 0.9 }));
+      group.add(left, right, body);
+      group.position.copy(base);
+      group.rotation.y = rng() * Math.PI * 2;
+      group.scale.setScalar(0.7 + rng() * 0.35);
+      this.decorations.add(group);
+      this.butterflies.push({ group, left, right, base, phase: rng() * Math.PI * 2 });
+    }
+
+    const bird = new Group();
+    const birdMat = new MeshStandardMaterial({ color: 0x33414f, roughness: 0.9, flatShading: true });
+    const birdBody = new BoxGeometry(0.8, 0.12, 0.24);
+    const birdWing = new BoxGeometry(1.05, 0.05, 0.3);
+    for (let i = 0; i < 7; i++) {
+      const b = new Group();
+      const body = new Mesh(birdBody, birdMat);
+      const left = new Mesh(birdWing, birdMat);
+      left.position.x = -0.5;
+      left.rotation.z = 0.28;
+      const right = new Mesh(birdWing, birdMat);
+      right.position.x = 0.5;
+      right.rotation.z = -0.28;
+      b.add(body, left, right);
+      const row = Math.ceil(i / 2);
+      const side = i === 0 ? 0 : i % 2 === 0 ? 1 : -1;
+      b.position.set(side * row * 2.3, (i === 0 ? 0 : -Math.abs(side) * row * 0.8), -row * 2.2);
+      b.scale.setScalar(0.9);
+      bird.add(b);
+      this.birdWings.push(left, right);
+    }
+    bird.position.set(0, 56, 76);
+    this.birdFlock = bird;
+    this.decorations.add(bird);
+
+    const kite = new Group();
+    const kiteCloth = new MeshStandardMaterial({ color: 0xe25b4a, roughness: 0.9, side: DoubleSide });
+    const kiteDiamond = new Mesh(new PlaneGeometry(2.6, 2.6), kiteCloth);
+    kiteDiamond.rotation.z = Math.PI / 4;
+    kite.add(kiteDiamond);
+    const spineMat = new MeshStandardMaterial({ color: 0xf4e6c8, roughness: 0.8 });
+    const spine = new Mesh(new BoxGeometry(0.08, 3.4, 0.08), spineMat);
+    kite.add(spine);
+    const spar = new Mesh(new BoxGeometry(3.3, 0.08, 0.08), spineMat);
+    kite.add(spar);
+    for (let i = 0; i < 4; i++) {
+      const tail = new Mesh(new ConeGeometry(0.22 - i * 0.03, 0.5, 4), new MeshBasicMaterial({ color: i % 2 === 0 ? 0xffd45c : 0xff8a74 }));
+      tail.position.set(Math.sin(i * 1.1) * 0.25, -2.2 - i * 0.5, 0);
+      kite.add(tail);
+    }
+    kite.position.set(21, 27, 56);
+    this.kite = kite;
+    this.decorations.add(kite);
+    const lineGeo = new BufferGeometry().setFromPoints([this.kiteAnchor, new Vector3(21, 27, 56)]);
+    this.kiteString = new Line(lineGeo, new LineBasicMaterial({ color: 0xf1e2c4, transparent: true, opacity: 0.45 }));
+    this.decorations.add(this.kiteString);
+
+    const gnome = new Group();
+    const gnomeBase = new Mesh(new CylinderGeometry(1.05, 1.25, 2.7, 7), new MeshStandardMaterial({ color: 0x4d6c8e, roughness: 0.9 }));
+    gnomeBase.position.y = 1.35;
+    const gnomeHead = new Mesh(new IcosahedronGeometry(0.72, 1), new MeshStandardMaterial({ color: 0xe6b08d, roughness: 0.9 }));
+    gnomeHead.position.y = 3.1;
+    const hat = new Mesh(new ConeGeometry(0.8, 1.8, 7), new MeshStandardMaterial({ color: 0xc94c3c, roughness: 0.85 }));
+    hat.position.y = 4.25;
+    const beard = new Mesh(new ConeGeometry(0.55, 1.05, 6), new MeshStandardMaterial({ color: 0xf1e8d4, roughness: 0.95 }));
+    beard.rotation.x = Math.PI;
+    beard.position.set(0, 2.62, 0.48);
+    const boots = new Mesh(new BoxGeometry(1.25, 0.4, 1.7), new MeshStandardMaterial({ color: 0x3a2a20, roughness: 0.95 }));
+    boots.position.set(0, 0.24, 0.1);
+    gnome.add(gnomeBase, gnomeHead, hat, beard, boots);
+    gnome.position.set(57, 0.03, 18);
+    gnome.rotation.y = -0.7;
+    gnome.traverse((obj) => {
+      if (obj instanceof Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+    this.decorations.add(gnome);
+    this.addContactShadow(57, 0.035, 18, 3.2, 0.34);
+  }
+
   private buildClouds(): void {
     const cloudMat = new MeshStandardMaterial({ color: 0xf4f7fa, roughness: 1, flatShading: true });
     const geo = new IcosahedronGeometry(7, 1);
     const rng = seeded(7);
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 18; i++) {
       const cloud = new Group();
-      const puffs = 3 + Math.floor(rng() * 4);
+      const puffs = 4 + Math.floor(rng() * 6);
       for (let p = 0; p < puffs; p++) {
         const puff = new Mesh(geo, cloudMat);
-        puff.position.set((rng() - 0.5) * 20, (rng() - 0.5) * 3, (rng() - 0.5) * 10);
-        puff.scale.set(1.5 + rng() * 1.7, 0.5 + rng() * 0.4, 0.8 + rng() * 0.5);
+        puff.position.set((rng() - 0.5) * 28, (rng() - 0.5) * 7, (rng() - 0.5) * 16);
+        puff.scale.set(1.1 + rng() * 1.8, 0.55 + rng() * 0.65, 0.9 + rng() * 1.1);
+        puff.rotation.set(rng() * 2, rng() * 2, rng() * 2);
         cloud.add(puff);
       }
       const a = rng() * Math.PI * 2;
-      const r = 170 + rng() * 180;
-      cloud.position.set(Math.cos(a) * r, 65 + rng() * 55, Math.sin(a) * r);
+      const r = 150 + rng() * 220;
+      cloud.position.set(Math.cos(a) * r, 58 + rng() * 70, Math.sin(a) * r);
+      cloud.rotation.y = rng() * Math.PI * 2;
       this.cloudGroup.add(cloud);
     }
   }
@@ -924,7 +1482,7 @@ export class Environment {
     const mat = new MeshBasicMaterial({
       map: tex,
       transparent: true,
-      opacity: 0.13,
+      opacity: 0.075,
       blending: AdditiveBlending,
       depthWrite: false,
       polygonOffset: true,
@@ -1026,6 +1584,8 @@ export class Environment {
     this.cloudGroup.visible = quality !== "low";
     if (this.dust) this.dust.visible = quality !== "low";
     if (this.lightShafts) this.lightShafts.visible = quality !== "low";
+    for (const butterfly of this.butterflies) butterfly.group.visible = quality !== "low";
+    if (this.birdFlock) this.birdFlock.visible = quality !== "low";
   }
 
   update(dt: number, elapsed: number): void {
@@ -1042,6 +1602,49 @@ export class Environment {
     });
     this.cloudGroup.position.x = (elapsed * 0.7) % 40;
     if (this.dustUniforms) this.dustUniforms.uTime.value = elapsed;
+    for (const butterfly of this.butterflies) {
+      const t = elapsed + butterfly.phase;
+      butterfly.group.position.set(
+        butterfly.base.x + Math.sin(t * 0.9) * 1.8,
+        butterfly.base.y + Math.sin(t * 1.7) * 0.35,
+        butterfly.base.z + Math.cos(t * 0.7) * 1.5,
+      );
+      butterfly.group.rotation.y = t * 0.9;
+      const flap = Math.sin(elapsed * 18 + butterfly.phase) * 0.9;
+      butterfly.left.rotation.z = flap;
+      butterfly.right.rotation.z = -flap;
+    }
+    if (this.birdFlock) {
+      this.birdFlock.position.set(Math.sin(elapsed * 0.045) * 14, 52 + Math.sin(elapsed * 0.1) * 3, 68 + Math.cos(elapsed * 0.045) * 12);
+      this.birdFlock.rotation.y = -elapsed * 0.045;
+      for (let i = 0; i < this.birdWings.length; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        this.birdWings[i].rotation.z = side * (0.28 + Math.sin(elapsed * 5 + i * 0.6) * 0.32);
+      }
+    }
+    if (this.kite) {
+      const kx = 21 + Math.sin(elapsed * 0.3) * 2.2;
+      const ky = 27 + Math.sin(elapsed * 0.72) * 1.4;
+      const kz = 56 + Math.cos(elapsed * 0.24) * 1.5;
+      this.kite.position.set(kx, ky, kz);
+      this.kite.rotation.z = Math.sin(elapsed * 0.45) * 0.16;
+      this.kite.rotation.y = elapsed * 0.11;
+      if (this.kiteString) {
+        const attr = this.kiteString.geometry.getAttribute("position") as BufferAttribute;
+        attr.setXYZ(0, this.kiteAnchor.x, this.kiteAnchor.y, this.kiteAnchor.z);
+        attr.setXYZ(1, kx, ky - 1.8, kz);
+        attr.needsUpdate = true;
+      }
+    }
+    for (let i = 0; i < this.chimneySmoke.length; i++) {
+      const sprite = this.chimneySmoke[i];
+      const t = (elapsed * 0.11 + i / this.chimneySmoke.length) % 1;
+      const scale = 1.4 + t * 6;
+      sprite.position.set(-44 + Math.sin(t * 5.2 + i) * 1.8 + t * 4, 33 + t * 12, Math.cos(t * 3.4 + i) * 1.6 + t * 3);
+      sprite.scale.set(scale, scale, 1);
+      const mat = sprite.material as SpriteMaterial;
+      mat.opacity = (t < 0.12 ? t / 0.12 : 1) * (1 - t) * 0.32;
+    }
   }
 
   setShadows(enabled: boolean): void {
