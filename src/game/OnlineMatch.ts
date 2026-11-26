@@ -25,7 +25,7 @@ import {
   type Team,
 } from "../../shared/config";
 import { integrateFlight, reverseFlightDirection } from "../../shared/flight";
-import { BALLOON, PICKUP_INFO, type PickupKind } from "../../shared/powerups";
+import { BALLOON, BALLOON_SPAWNS, PICKUP_INFO, type PickupKind } from "../../shared/powerups";
 import type { CalloutTone } from "../../shared/streaks";
 import type { Controls, FlightState, InputPacket, PlaneRuntime } from "../../shared/types";
 import type { ActiveMatch } from "./ActiveMatch";
@@ -37,7 +37,7 @@ import type { CameraRig } from "./CameraRig";
 import type { Effects } from "./Effects";
 import type { InputManager } from "./Input";
 import type { PhysicsWorld } from "./PhysicsWorld";
-import type { HudData, HudTarget, MatchResult, RadarBlip, ScoreRow } from "./LocalMatch";
+import type { HudData, HudTarget, MatchResult, RadarBlip, RadarObjective, ScoreRow } from "./LocalMatch";
 
 interface NetPlayerState {
   name: string;
@@ -770,6 +770,7 @@ export class OnlineMatch implements ActiveMatch {
     const f = this.local.runtime.flight;
     const yaw = Math.atan2(2 * (f.qw * f.qy + f.qx * f.qz), 1 - 2 * (f.qy * f.qy + f.qz * f.qz));
     const radar: RadarBlip[] = [];
+    const objectives: RadarObjective[] = [];
     this.state.players.forEach((p, id) => {
       if (id === this.sessionId || !p.alive) return;
       radar.push({
@@ -778,6 +779,17 @@ export class OnlineMatch implements ActiveMatch {
         altitude: p.y,
         team: p.team,
         isTarget: id === this.targetId,
+      });
+    });
+    this.state.balloons?.forEach((balloon, key) => {
+      const spawn = BALLOON_SPAWNS[Number(key)];
+      if (!spawn) return;
+      objectives.push({
+        x: spawn.x - f.x,
+        y: spawn.z - f.z,
+        altitude: spawn.y,
+        alive: balloon.alive,
+        pickup: balloon.alive ? null : balloon.kind,
       });
     });
     return {
@@ -815,6 +827,7 @@ export class OnlineMatch implements ActiveMatch {
       missileWarning: (snap?.alive ?? false) && this.rockets.some((r) => r.targetId === this.sessionId),
       target: this.lastHudTarget,
       radar,
+      objectives,
       playerHeading: yaw * 180 / Math.PI,
       hitFlash: this.hitFlash,
       damageFlash: this.damageFlash,

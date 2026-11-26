@@ -12,6 +12,7 @@ import {
   type Team,
 } from "../../shared/config";
 import type { HudData, MatchResult, ScoreRow } from "../game/LocalMatch";
+import { PICKUP_INFO } from "../../shared/powerups";
 import type { CalloutTone } from "../../shared/streaks";
 import type { KillEvent } from "../../shared/types";
 
@@ -656,6 +657,34 @@ export class UIManager {
     ctx.stroke();
     ctx.setLineDash([]);
     const range = 115;
+    for (const objective of data.objectives) {
+      const px = c + (objective.x / range) * 88;
+      const py = c + (objective.y / range) * 88;
+      if (Math.hypot(px - c, py - c) > 92) continue;
+      if (objective.alive) {
+        ctx.strokeStyle = "rgba(248,200,64,.62)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(px, py - 3.4);
+        ctx.lineTo(px + 3.4, py);
+        ctx.lineTo(px, py + 3.4);
+        ctx.lineTo(px - 3.4, py);
+        ctx.closePath();
+        ctx.stroke();
+      } else if (objective.pickup) {
+        const color = `#${PICKUP_INFO[objective.pickup].color.toString(16).padStart(6, "0")}`;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(px, py, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        ctx.arc(px, py, 5.2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
     for (const blip of data.radar) {
       const px = c + (blip.x / range) * 88;
       const py = c + (blip.y / range) * 88;
