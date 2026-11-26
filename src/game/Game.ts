@@ -3,11 +3,13 @@ import {
   Clock,
   Color,
   PCFShadowMap,
+  PMREMGenerator,
   Quaternion,
   Scene,
   SRGBColorSpace,
   WebGLRenderer,
 } from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { Room } from "colyseus.js";
 import { STATIC_BOXES } from "../../shared/worldLayout";
 import { AIRCRAFT, DEFAULT_THROTTLE, type Settings, type SoloConfig } from "../../shared/config";
@@ -19,6 +21,7 @@ import { InputManager } from "./Input";
 import { AudioManager } from "./Audio";
 import { Effects } from "./Effects";
 import { CameraRig } from "./CameraRig";
+import { PostFX } from "./PostFX";
 import { AircraftView } from "./AircraftView";
 import { LocalMatch } from "./LocalMatch";
 import { OnlineMatch } from "./OnlineMatch";
@@ -41,6 +44,7 @@ export class Game {
   private cameraRig?: CameraRig;
   private environment?: Environment;
   private effects?: Effects;
+  private postFx?: PostFX;
   private match: ActiveMatch | null = null;
   private onlineMatch: OnlineMatch | null = null;
   private activeMode: "solo" | "online" | null = null;
@@ -71,7 +75,7 @@ export class Game {
     this.renderer = new WebGLRenderer({ canvas, antialias: !coarse, powerPreference: "high-performance", preserveDrawingBuffer: import.meta.env.DEV });
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMappingExposure = 0.95;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.setClearColor(new Color(0x0a1728));
     this.input = new InputManager(canvas);
@@ -96,9 +100,11 @@ export class Game {
       this.ui.setLoading(0.7, "Assembling the toy house...");
       this.physics = await PhysicsWorld.create(STATIC_BOXES);
       this.cameraRig = new CameraRig(window.innerWidth / window.innerHeight, this.physics);
-      this.ui.setLoading(0.82, "Painting the garden...");
+      this.ui.setLoading(0.78, "Painting the garden...");
       this.environment = new Environment(this.scene, this.assets, this.quality);
       this.environment.build();
+      this.applyEnvironmentLighting();
+      this.postFx = new PostFX(this.renderer, this.scene, this.cameraRig.camera, this.quality);
       this.effects = new Effects(this.scene, this.quality);
       this.effects.tracersEnabled = this.settings.showTracers;
       this.spawnMenuPlane();
@@ -392,12 +398,27 @@ export class Game {
     this.ui.showToast("ONLINE SORTIE · GOOD HUNTING", 2.2);
   }
 
+  private applyEnvironmentLighting(): void {
+    // One-time room probe gives the metal and paint a soft, believable sheen.
+    const pmrem = new PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    try {
+      const probe = pmrem.fromScene(room, 0.04);
+      this.scene.environment = probe.texture;
+      this.scene.environmentIntensity = 0.24;
+    } finally {
+      room.dispose();
+      pmrem.dispose();
+    }
+  }
+
   private resize(): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const dpr = Math.min(window.devicePixelRatio || 1, this.quality === "high" ? 2 : this.quality === "medium" ? 1.5 : 1.1);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
+    this.postFx?.setSize(w, h, dpr);
     this.cameraRig?.resize(w, h);
     this.ui.setLockPrompt(false);
   }
@@ -409,6 +430,7 @@ export class Game {
     this.renderer.shadowMap.enabled = quality !== "low";
     this.environment?.setQuality(quality);
     this.effects?.setQuality(quality);
+    this.postFx?.setQuality(quality);
     if (this.cameraRig) this.resize();
   }
 
@@ -662,7 +684,10 @@ export class Game {
     if (this.match && !this.paused && !this.ended) {
       this.match.update(realDt);
       if (!this.ended) {
-        this.ui.updateHud(this.match.getHud());
+        const hud = this.match.getHud();
+        this.ui.updateHud(hud);
+        const speedFx = hud.boosting ? 0.82 : hud.speed > 240 ? (hud.speed - 240) / 220 : 0;
+        this.postFx?.setSpeed(speedFx);
         const needPointer = !this.input.usesTouch && !this.input.isLocked && !this.ui.isChatOpen;
         if (needPointer !== this.lastPointerPrompt) {
           this.lastPointerPrompt = needPointer;
@@ -673,6 +698,7 @@ export class Game {
         else this.ui.hideScoreboard();
       }
     } else if (!this.match) {
+      this.postFx?.setSpeed(0);
       this.ui.setLockPrompt(false);
       if (this.menuPlane && this.menuRuntime && this.cameraRig) {
         const screen = this.ui.currentScreen;
@@ -696,7 +722,9 @@ export class Game {
     requestAnimationFrame(this.animate);
     const dt = Math.min(0.05, this.clock.getDelta());
     this.update(dt);
-    if (this.cameraRig) this.renderer.render(this.scene, this.cameraRig.camera);
+    if (!this.cameraRig) return;
+    if (this.postFx) this.postFx.render(dt);
+    else this.renderer.render(this.scene, this.cameraRig.camera);
   };
 
 }
