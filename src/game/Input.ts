@@ -4,6 +4,18 @@ import type { Controls } from "../../shared/types";
 type Action = "camera" | "pause" | "chat" | "mute" | "scoreboard" | "resume";
 
 const TOUCH_TURN_AUTHORITY = 0.5;
+const GAMEPAD_DEADZONE = 0.16;
+
+interface PadInput {
+  pitch: number;
+  roll: number;
+  yaw: number;
+  throttleDelta: number;
+  fire: boolean;
+  rocket: boolean;
+  flare: boolean;
+  boost: boolean;
+}
 
 export class InputManager {
   private canvas: HTMLCanvasElement;
@@ -41,6 +53,7 @@ export class InputManager {
   private isTouchDevice = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
   private scoreboardHeld = false;
   private listeners: Array<() => void> = [];
+  private padButtons = new Set<number>();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -224,8 +237,7 @@ export class InputManager {
     return Math.sign(value) * Math.pow(travel, 1.7);
   }
 
-  private smoothTouchAxis(target: number, dt: number, pitch: boolean): number {
-    const omega = 4;
+  private smoothTouchAxis(target: number, dt: number, pitch: boolean): number {    const omega = 4;
     const current = pitch ? this.touchSteerPitch : this.touchSteerRoll;
     const velocity = pitch ? this.touchSteerPitchVel : this.touchSteerRollVel;
     const offset = current - target;
@@ -262,6 +274,10 @@ export class InputManager {
     document.body.classList.toggle("touch-playing", visible);
   }
 
+  pollGlobalActions(): void {
+    this.readGamepad();
+  }
+
   get usesTouch(): boolean {
     return this.isTouchDevice;
   }
@@ -293,11 +309,11 @@ export class InputManager {
   clear(): void {
     this.keys.clear();
     this.fireMouse = false;
-    this.rocketMouse = false;
-    this.touch.fire = false;
+    this.rocketMouse = false;    this.touch.fire = false;
     this.touch.rocket = false;
     this.touch.flare = false;
     this.flarePulse = false;
+    this.padButtons.clear();
     this.touch.boost = false;
     this.touch.pitch = 0;
     this.touch.roll = 0;
@@ -310,9 +326,61 @@ export class InputManager {
     this.actions = [];
   }
 
+  private readGamepad(): PadInput | null {
+    if (typeof navigator.getGamepads !== "function") return null;
+    let pad: Gamepad | null = null;
+    try {
+      for (const candidate of navigator.getGamepads()) {
+        if (candidate?.connected) {
+          pad = candidate;
+          break;
+        }
+      }
+    } catch {
+      return null;
+    }
+    if (!pad) {
+      this.padButtons.clear();
+      return null;
+    }
+    const expo = (value: number): number => {
+      const magnitude = Math.abs(value);
+      if (magnitude <= GAMEPAD_DEADZONE) return 0;
+      const travel = (magnitude - GAMEPAD_DEADZONE) / (1 - GAMEPAD_DEADZONE);
+      return Math.sign(value) * Math.pow(travel, 1.35);
+    };
+    const axis = (index: number): number => expo(pad.axes[index] ?? 0);
+    const pressed = (index: number): boolean => {
+      const button = pad.buttons[index];
+      return Boolean(button && (button.pressed || button.value > 0.35));
+    };
+    const edge = (index: number): boolean => pressed(index) && !this.padButtons.has(index);
+    if (edge(3)) this.actions.push("camera");
+    if (edge(9)) this.actions.push("pause");
+    const nextButtons = new Set<number>();
+    for (let i = 0; i < pad.buttons.length; i++) if (pressed(i)) nextButtons.add(i);
+    this.padButtons = nextButtons;
+    const leftX = axis(0);
+    const leftY = axis(1);
+    const rightX = axis(2);
+    const rightY = axis(3);
+    const invert = this.settings.invertY ? 1 : -1;
+    return {
+      pitch: leftY * invert,
+      roll: leftX,
+      yaw: rightX,
+      throttleDelta: (pressed(12) ? 1 : 0) - (pressed(13) ? 1 : 0) - rightY * 1.4,
+      fire: pressed(7) || pressed(0),
+      rocket: pressed(1),
+      flare: pressed(2),
+      boost: pressed(6) || pressed(4),
+    };
+  }
+
   getControls(dt: number): Controls {
     const k = this.keys;
     if (!this.enabled) return { pitch: 0, roll: 0, yaw: 0, throttle: this.throttle, boost: false, fire: false, rocket: false, flare: false, autoLevelRoll: true, autoLevelPitch: true };
+    const pad = this.readGamepad();
     const mouseDecay = Math.exp(-dt * 3.4);
     this.mouseSteerX *= mouseDecay;
     this.mouseSteerY *= mouseDecay;
@@ -329,9 +397,15 @@ export class InputManager {
     const touchRollTarget = this.touch.active ? this.gentleStick(this.touch.roll) * TOUCH_TURN_AUTHORITY : 0;
     keyboardPitch += this.smoothTouchAxis(touchPitchTarget, dt, true);
     keyboardRoll += this.smoothTouchAxis(touchRollTarget, dt, false);
+    if (pad) {
+      keyboardPitch += pad.pitch;
+      keyboardRoll += pad.roll;
+      keyboardYaw += pad.yaw;
+    }
     let throttle = this.throttle;
     if (k.has("KeyX")) throttle += 0.55 * dt;
     if (k.has("KeyZ")) throttle -= 0.55 * dt;
+    if (pad) throttle += pad.throttleDelta * 0.55 * dt;
     throttle += this.wheelDelta;
     this.wheelDelta = 0;
     this.throttle = clamp(throttle, 0.15, 1);
@@ -342,21 +416,23 @@ export class InputManager {
     const rollIntent =
       k.has("KeyA") || k.has("ArrowLeft") || k.has("KeyD") || k.has("ArrowRight") ||
       (this.touch.active && Math.abs(this.touch.roll) > 0.06) ||
-      (this.pointerLocked && Math.abs(this.mouseSteerX) > 0.02);
+      (this.pointerLocked && Math.abs(this.mouseSteerX) > 0.02) ||
+      (pad !== null && Math.abs(pad.roll) > 0.02);
     const pitchIntent =
       k.has("KeyW") || k.has("ArrowUp") || k.has("KeyS") || k.has("ArrowDown") ||
       (this.touch.active && Math.abs(this.touch.pitch) > 0.06) ||
-      (this.pointerLocked && Math.abs(this.mouseSteerY) > 0.02);
-    const flare = this.flarePulse || k.has("KeyF") || (this.touch.active && this.touch.flare);
+      (this.pointerLocked && Math.abs(this.mouseSteerY) > 0.02) ||
+      (pad !== null && Math.abs(pad.pitch) > 0.02);
+    const flare = this.flarePulse || k.has("KeyF") || (this.touch.active && this.touch.flare) || (pad?.flare ?? false);
     this.flarePulse = false;
     return {
       pitch,
       roll,
       yaw: keyboardYaw,
       throttle: this.throttle,
-      boost: k.has("ShiftLeft") || k.has("ShiftRight") || (this.touch.active && this.touch.boost),
-      fire: k.has("Space") || this.fireMouse || (this.touch.active && this.touch.fire),
-      rocket: k.has("KeyR") || this.rocketMouse || (this.touch.active && this.touch.rocket),
+      boost: k.has("ShiftLeft") || k.has("ShiftRight") || (this.touch.active && this.touch.boost) || (pad?.boost ?? false),
+      fire: k.has("Space") || this.fireMouse || (this.touch.active && this.touch.fire) || (pad?.fire ?? false),
+      rocket: k.has("KeyR") || this.rocketMouse || (this.touch.active && this.touch.rocket) || (pad?.rocket ?? false),
       flare,
       autoLevelRoll: !rollIntent,
       autoLevelPitch: !pitchIntent,
