@@ -1201,13 +1201,14 @@ export class LocalMatch {
     this.lastTargetId = best.runtime.id;
     tmp.set(best.runtime.flight.x, best.runtime.flight.y, best.runtime.flight.z);
     const toTarget = tmp.clone().sub(playerPos).normalize();
-    const locked = toTarget.dot(fwd) > 0.95;
+    const targetDistance = tmp.distanceTo(playerPos);
+    const locked = targetDistance <= 140 && toTarget.dot(fwd) > 0.95;
     tmp2.copy(tmp).project(camera);
     const onScreen = tmp2.z < 1 && tmp2.z > -1 && Math.abs(tmp2.x) < 1.15 && Math.abs(tmp2.y) < 1.15;
     const target: HudTarget = {
       x: (tmp2.x * 0.5 + 0.5) * 100,
       y: (-tmp2.y * 0.5 + 0.5) * 100,
-      distance: new Vector3(best.runtime.flight.x, best.runtime.flight.y, best.runtime.flight.z).distanceTo(playerPos),
+      distance: targetDistance,
       health: best.runtime.health / best.runtime.maxHealth,
       team: best.runtime.team,
       onScreen,

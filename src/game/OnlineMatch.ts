@@ -764,14 +764,15 @@ export class OnlineMatch implements ActiveMatch {
     const chosen = best as Snapshot;
     this.targetId = chosen.id;
     const targetPos = new Vector3(chosen.flight.x, chosen.flight.y, chosen.flight.z);
+    const targetDistance = targetPos.distanceTo(playerPos);
     const toTarget = targetPos.clone().sub(playerPos).normalize();
-    const locked = toTarget.dot(fwd) > 0.95;
+    const locked = targetDistance <= 140 && toTarget.dot(fwd) > 0.95;
     tmp2.copy(targetPos).project(camera);
     const onScreen = tmp2.z < 1 && tmp2.z > -1 && Math.abs(tmp2.x) < 1.15 && Math.abs(tmp2.y) < 1.15;
     this.lastHudTarget = {
       x: (tmp2.x * 0.5 + 0.5) * 100,
       y: (-tmp2.y * 0.5 + 0.5) * 100,
-      distance: targetPos.distanceTo(playerPos),
+      distance: targetDistance,
       health: chosen.health / chosen.maxHealth,
       team: chosen.team,
       onScreen,
