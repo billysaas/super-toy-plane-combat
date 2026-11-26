@@ -15,6 +15,7 @@ import {
 import type { HudData, MatchResult, ScoreRow } from "../game/LocalMatch";
 import { PICKUP_INFO } from "../../shared/powerups";
 import { shotAccuracy } from "../../shared/medals";
+import { CareerStore, rankInfo } from "./Career";
 import type { CalloutTone } from "../../shared/streaks";
 import type { KillEvent } from "../../shared/types";
 
@@ -122,6 +123,7 @@ export class UIManager {
   private killTimers: number[] = [];
   private isTouch = false;
   private radarCtx: CanvasRenderingContext2D | null;
+  private career = new CareerStore();
 
   constructor() {
     this.loadLocal();
@@ -135,6 +137,7 @@ export class UIManager {
     this.setMusicEnabled(true);
     this.syncSettingsControls();
     this.syncNames();
+    this.renderCareer();
     this.updateHangarPreview();
     this.updateSoloPreview();
     el("mp-name").addEventListener("input", () => {
@@ -336,6 +339,13 @@ export class UIManager {
     } else {
       el("results-breakdown").innerHTML = "";
     }
+    const award = this.career.applyResult(result);
+    const rankUp = award.before.name !== award.after.name;
+    el("results-career").innerHTML = `
+      <div class="career-result-top"><span>+${award.gained} CAREER XP</span><b>${award.after.name}</b></div>
+      <div class="career-progress"><span style="width:${Math.round(award.after.progress * 100)}%"></span></div>
+      <div class="career-result-foot"><span>${award.after.nextName ? `${award.after.xpInto} / ${award.after.xpForNext} XP TO ${award.after.nextName}` : "MAXIMUM RANK"}</span>${rankUp ? `<b class="rank-up">RANK UP · ${award.after.name}</b>` : ""}</div>`;
+    this.renderCareer();
     el("results-table").innerHTML = this.scoreTableHtml(result.rows, result.survival ? "tdm" : result.mode);
     this.hideHud();
   }
@@ -849,8 +859,21 @@ export class UIManager {
     document.querySelectorAll<HTMLButtonElement>("#solo-aircraft-picker button").forEach((btn) => btn.classList.toggle("selected", btn.dataset.aircraft === this.aircraftId));
   }
 
-  private updateHangarPreview(): void {
-    const def = getAircraft(this.aircraftId);
+  private renderCareer(): void {
+    const info = rankInfo(this.career.state.xp);
+    const rank = document.getElementById("career-rank");
+    const fill = document.getElementById("career-progress-fill");
+    const xp = document.getElementById("career-xp");
+    if (rank) rank.textContent = info.name;
+    if (fill) fill.style.width = `${Math.round(info.progress * 100)}%`;
+    if (xp) xp.textContent = info.nextName ? `${info.xpInto} / ${info.xpForNext} XP` : `${this.career.state.xp} XP`;
+    const strip = document.querySelector<HTMLElement>(".career-strip");
+    if (strip) {
+      strip.title = `${this.career.state.matches} sorties · ${this.career.state.kills} kills · ${this.career.state.medals} medals · best streak ×${this.career.state.bestStreak}`;
+    }
+  }
+
+  private updateHangarPreview(): void {    const def = getAircraft(this.aircraftId);
     const detail = el("hangar-preview");
     detail.style.setProperty("--preview-color", hex(def.bodyColor));
     detail.innerHTML = planeSvg();
