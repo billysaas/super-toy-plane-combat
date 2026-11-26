@@ -276,16 +276,16 @@ export class Effects {
   }
 
   muzzle(position: Vector3, dir: Vector3, color = 0xffd980): void {
-    for (let i = 0; i < (this.quality === "low" ? 2 : 4); i++) {
+    for (let i = 0; i < (this.quality === "low" ? 2 : 3); i++) {
       this.fire.spawn({
         x: position.x, y: position.y, z: position.z,
         vx: dir.x * (14 + Math.random() * 10) + (Math.random() - 0.5) * 8,
         vy: dir.y * (14 + Math.random() * 10) + (Math.random() - 0.5) * 8,
         vz: dir.z * (14 + Math.random() * 10) + (Math.random() - 0.5) * 8,
-        life: 0.07 + Math.random() * 0.07,
-        size: 0.2 + Math.random() * 0.1,
-        drag: 0.86,
-        r: 2.6, g: 1.7, b: 0.55, a: 0.9,
+        life: 0.05 + Math.random() * 0.05,
+        size: 0.16 + Math.random() * 0.08,
+        drag: 0.9,
+        r: 1.7, g: 1.05, b: 0.32, a: 0.85,
       });
     }
     void color;

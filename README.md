@@ -6,6 +6,8 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 
 ![Super Toy Plane Combat gameplay](docs/gameplay.png)
 
+![Toy Box Survival mode](docs/survival.png)
+
 ## Features
 
 - **One continuous toy world:** a large multi-room house with a double-height living room, kitchen, bedrooms, hallways, stairs, skylight, collidable furniture, garden, patio, trees, hedges, fountain and a fortified toy-box boundary.
