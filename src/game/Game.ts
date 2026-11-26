@@ -390,6 +390,7 @@ export class Game {
         onSpawn: () => this.ui.showToast("REDEPLOYED", 1.4),
         onKillFeed: (event) => this.ui.addKill(event),
         onPickup: (kind) => this.ui.showToast(PICKUP_INFO[kind].toast, 1.8),
+        onCombatCallout: (title, subtitle, tone) => this.ui.showCombatCallout(title, subtitle, tone),
       },
     });
     this.onlineMatch = match;
@@ -521,6 +522,7 @@ export class Game {
           onKilled: () => this.ui.showToast("SHOT DOWN · EJECTING...", 2),
           onSpawn: () => this.ui.showToast("REDEPLOYED", 1.5),
           onPickup: (kind) => this.ui.showToast(PICKUP_INFO[kind].toast, 1.8),
+          onCombatCallout: (title, subtitle, tone) => this.ui.showCombatCallout(title, subtitle, tone),
         },
       },
       config,

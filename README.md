@@ -10,7 +10,7 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 
 - **One continuous toy world:** a large multi-room house with a double-height living room, kitchen, bedrooms, hallways, stairs, skylight, collidable furniture, garden, patio, trees, hedges, fountain and a fortified toy-box boundary.
 - **Arcade flight:** bank-to-turn coordination, boost, throttle, collision bounces, damage and respawning. Climbing bleeds energy and diving recovers it; heavy damage cuts top speed and turn authority, and a stalled wing drops the nose until airflow returns.
-- **Combat:** twin machine-gun tracers, homing rockets, splash damage, explosions, debris physics, smoke trails, hit markers and kill feed.
+- **Combat:** twin machine-gun tracers, homing rockets, splash damage, explosions, debris physics, smoke trails, hit markers and kill feed. Kill streaks award score, rapid fire, armour, repairs and a full rocket rack; multi-kills pop callouts.
 - **Destructible balloons:** ten drifting hot-air balloons can be shot down to release floating armour, hull repair, rapid-fire or energy-shield pickups. Fly through a pickup to collect it.
 - **Four aircraft:** Meadowhawk, Blue Jay, Crimson Fox and Golden Wasp, each with its own speed, agility, armour, ammo and handling.
 - **Two cameras:** chase camera and first-person cockpit view with cockpit framing.

@@ -27,6 +27,7 @@ export class PlayerState extends Schema {
   @type("number") rockets = 4;
   @type("number") kills = 0;
   @type("number") deaths = 0;
+  @type("number") streak = 0;
   @type("number") score = 0;
   @type("boolean") boosting = false;
   @type("number") lastProcessedInput = 0;

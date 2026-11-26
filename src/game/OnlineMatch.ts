@@ -25,6 +25,7 @@ import {
 } from "../../shared/config";
 import { integrateFlight, reverseFlightDirection } from "../../shared/flight";
 import { BALLOON, PICKUP_INFO, type PickupKind } from "../../shared/powerups";
+import type { CalloutTone } from "../../shared/streaks";
 import type { Controls, FlightState, InputPacket, PlaneRuntime } from "../../shared/types";
 import type { ActiveMatch } from "./ActiveMatch";
 import type { AssetStore } from "./AssetStore";
@@ -62,6 +63,7 @@ interface NetPlayerState {
   rockets: number;
   kills: number;
   deaths: number;
+  streak: number;
   score: number;
   boosting: boolean;
   respawnIn: number;
@@ -114,6 +116,7 @@ interface Snapshot {
   rockets: number;
   kills: number;
   deaths: number;
+  streak: number;
   score: number;
   boosting: boolean;
   respawnIn: number;
@@ -167,6 +170,7 @@ export interface OnlineCallbacks {
   onSpawn: () => void;
   onKillFeed: (event: any) => void;
   onPickup: (kind: PickupKind) => void;
+  onCombatCallout: (title: string, subtitle: string, tone: CalloutTone) => void;
 }
 
 const tmp = new Vector3();
@@ -256,6 +260,7 @@ export class OnlineMatch implements ActiveMatch {
         rockets: p.rockets,
         kills: p.kills,
         deaths: p.deaths,
+        streak: p.streak,
         score: p.score,
         boosting: p.boosting,
         respawnIn: p.respawnIn,
@@ -673,7 +678,7 @@ export class OnlineMatch implements ActiveMatch {
         best = {
           id, name: p.name, team: p.team, aircraft: p.aircraft, alive: p.alive,
           flight: toFlight(p), health: p.health, maxHealth: p.maxHealth, ammo: p.ammo,
-          rockets: p.rockets, kills: p.kills, deaths: p.deaths, score: p.score, boosting: p.boosting, respawnIn: p.respawnIn,
+          rockets: p.rockets, kills: p.kills, deaths: p.deaths, streak: p.streak, score: p.score, boosting: p.boosting, respawnIn: p.respawnIn,
           armor: p.armor, shield: p.shield, shieldSeconds: p.shieldSeconds, cadenceSeconds: p.cadenceSeconds,
         };
       }
@@ -740,6 +745,7 @@ export class OnlineMatch implements ActiveMatch {
       aircraftName: this.local.def.name,
       kills: snap?.kills ?? 0,
       deaths: snap?.deaths ?? 0,
+      streak: snap?.streak ?? 0,
       boosting: this.localControls.boost && (snap?.alive ?? false),
       invulnerable: false,
       stalled: (snap?.alive ?? false) && f.speed < this.local.def.minSpeed * 0.82,
@@ -868,6 +874,11 @@ export class OnlineMatch implements ActiveMatch {
       }
     } else if (event === "kill") {
       this.deps.callbacks.onKillFeed(payload);
+    } else if (event === "combatCallout") {
+      if (payload.playerId === this.sessionId) {
+        this.deps.callbacks.onCombatCallout(payload.title, payload.subtitle, payload.tone);
+        this.deps.audio.killstreak();
+      }
     } else if (event === "shieldHit") {
       const pos = new Vector3(payload.x, payload.y, payload.z);
       this.deps.effects.hitSpark(pos, 0x86e5ff);
