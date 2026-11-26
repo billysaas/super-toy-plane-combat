@@ -54,6 +54,25 @@ export interface TreePlacement {
   scale: number;
 }
 
+export interface ToyBlock {
+  x: number;
+  z: number;
+  size: number;
+  baseY: number;
+  color: number;
+  label: string;
+}
+
+export const TOY_BLOCKS: ToyBlock[] = [
+  { x: -41, z: 17.5, size: 1.5, baseY: 0.36, color: 0xd95b4a, label: "A" },
+  { x: -38.4, z: 19.8, size: 1.05, baseY: 0.36, color: 0x3c88d8, label: "B" },
+  { x: -40.4, z: 21.4, size: 0.8, baseY: 0.36, color: 0xf3c14a, label: "1" },
+  { x: -12, z: -10, size: 1.35, baseY: 0.36, color: 0x5b8f55, label: "C" },
+  { x: -9.3, z: -12.2, size: 0.95, baseY: 0.36, color: 0xe08a45, label: "2" },
+  { x: 7, z: 45, size: 1.6, baseY: 0.04, color: 0xc77fb0, label: "D" },
+  { x: 10, z: 47.2, size: 1.1, baseY: 0.04, color: 0x64b5ff, label: "3" },
+];
+
 export function makeBox(cx: number, cy: number, cz: number, hx: number, hy: number, hz: number, kind: BoxKind, material: BoxMaterial): StaticBox {
   return { cx, cy, cz, hx, hy, hz, kind, material };
 }
@@ -304,6 +323,10 @@ export function buildWorldBoxes(): StaticBox[] {
   boxes.push(makeBox(-46.6, 4.9, 0, 1.5, 4.9, 5.2, "prop", "stone"));
   boxes.push(makeBox(-46.6, 1.1, 0, 1.9, 0.75, 5.6, "prop", "stone"));
   boxes.push(makeBox(-46.6, 8.8, 0, 1.2, 1.4, 4.2, "prop", "stone"));
+  boxes.push(makeBox(-44, 28, 0, 2.4, 4.5, 2.6, "prop", "stone"));
+  boxes.push(makeBox(24, 26, -18, 2.8, 2.4, 2.8, "prop", "wood"));
+  boxes.push(makeBox(32, 0.62, 46, 2.4, 0.62, 0.8, "prop", "wood"));
+  boxes.push(makeBox(52, 0.85, 10, 1.3, 0.85, 1.3, "prop", "stone"));
 
   boxes.push(makeBox(-93, 1.2, 43, 8, 1.2, 4, "shed", "wood"));
   boxes.push(makeBox(-93, 2.4, 39, 8, 2.4, 0.4, "shed", "wood"));
@@ -324,6 +347,10 @@ export function buildWorldBoxes(): StaticBox[] {
     if (!f.collider) continue;
     const c = f.collider;
     boxes.push(makeBox(f.x + (c.dx ?? 0), f.y + c.dy, f.z + (c.dz ?? 0), c.hx, c.hy, c.hz, "furniture", "wood"));
+  }
+
+  for (const block of TOY_BLOCKS) {
+    boxes.push(makeBox(block.x, block.baseY + block.size, block.z, block.size, block.size, block.size, "prop", "wood"));
   }
 
   for (const t of TREES) {
