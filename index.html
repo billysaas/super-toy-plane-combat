@@ -73,12 +73,13 @@
             <div class="segmented" id="solo-mode">
               <button data-mode="tdm" class="selected">TEAM DEATHMATCH</button>
               <button data-mode="ffa">FREE FOR ALL</button>
+              <button data-mode="survival">SURVIVAL</button>
             </div>
           </div>
           <div class="panel">
             <div class="panel-title">OPPOSITION <span id="enemy-count-label">5 BANDITS</span></div>
             <input id="enemy-count" class="range" type="range" min="1" max="11" value="5" />
-            <div class="range-ticks"><span>1</span><span>SKY FULL</span><span>11</span></div>
+            <div class="range-ticks"><span>1</span><span id="enemy-range-mid">SKY FULL</span><span id="enemy-range-max">11</span></div>
           </div>
           <div class="panel">
             <div class="panel-title">BANDIT SKILL</div>
@@ -192,6 +193,8 @@
           </div>
           <div class="panel-title">TOUCH PILOTS</div>
           <p>Use the virtual stick with your left thumb. Throttle, fire, boost, rockets, flares and camera are on the right. Play in portrait or landscape. Landscape gives a wider view; headphones recommended.</p>
+          <div class="panel-title">SURVIVAL MODE</div>
+          <p>Survival gives you three lives and throws escalating waves at you. Every 30 seconds another hostile joins the party; from wave six they fly at Ace skill. Stay high, use the balloons and make the last life count.</p>
           <div class="warning-strip">COLLISIONS HURT. THE CHANDELIER DOES NOT MOVE FOR YOU.</div>
         </div>
       </div>

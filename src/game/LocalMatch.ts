@@ -61,6 +61,10 @@ export interface RadarObjective {
 
 export interface HudData {
   mode: GameMode;
+  survival: boolean;
+  wave: number;
+  lives: number;
+  survivalTime: number;
   timeLeft: number;
   scoreRAF: number;
   scoreAXIS: number;
@@ -122,6 +126,7 @@ export interface MatchResult {
   playerDeaths: number;
   stats: MatchStats;
   medals: string[];
+  survival?: { wave: number; time: number; lives: number; score: number };
 }
 
 export interface LocalMatchCallbacks {
@@ -254,12 +259,20 @@ export class LocalMatch {
   private lastBotChat = 0;
   private stats = createMatchStats();
   private lifeStartedAt = 0;
+  private survival = false;
+  private wave = 1;
+  private lives = 3;
+  private survivalTime = 0;
+  private nextWaveIn = 30;
+  private reinforcementIndex = 0;
 
   constructor(deps: LocalMatchDeps, config: SoloConfig = DEFAULT_SOLO) {
     this.deps = deps;
     this.config = { ...config };
-    this.cameraMode = deps.settings.camera;
-    this.deps.camera.setMode(this.cameraMode);
+    this.survival = config.mode === "survival";
+    this.lives = this.survival ? 3 : 0;
+    if (this.survival) this.timeLeft = 9999;
+    this.cameraMode = deps.settings.camera;    this.deps.camera.setMode(this.cameraMode);
     this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, flare: false, autoLevelRoll: false, autoLevelPitch: false };
     this.balloonField = new BalloonField(this.deps.scene, this.deps.settings.quality);
     this.balloons = BALLOON_SPAWNS.map((_, index) => ({
@@ -283,14 +296,15 @@ export class LocalMatch {
     this.planes.push(this.player);
     const axisNames = [...BOT_NAMES_AXIS].sort(() => Math.random() - 0.5);
     const rafNames = [...BOT_NAMES_RAF].sort(() => Math.random() - 0.5);
-    const enemyCount = clamp(this.config.enemies, 1, 11);
+    const enemyCount = this.survival ? clamp(this.config.enemies, 1, 5) : clamp(this.config.enemies, 1, 11);
     for (let i = 0; i < enemyCount; i++) {
       const team: Team = this.config.mode === "ffa" ? (i % 2 === 0 ? "AXIS" : "RAF") : "AXIS";
       const name = team === "AXIS" ? axisNames[i % axisNames.length] : rafNames[i % rafNames.length];
       const botDef = AIRCRAFT[(i + 1 + Math.floor(Math.random() * 3)) % AIRCRAFT.length];
       const spawnPoint = i === 0 ? { x: -22, y: 9, z: -5, yaw: Math.PI } : getSpawnForTeam(team);
       const bot = this.createPlane(`bot-${i}`, name, team, botDef, true, spawnPoint.x, spawnPoint.y, spawnPoint.z, spawnPoint.yaw);
-      bot.bot = new BotPilot(this.config.difficulty, this.config.mode, 13 + i * 7);
+      const botMode: GameMode = this.config.mode === "ffa" ? "ffa" : "tdm";
+      bot.bot = new BotPilot(this.config.difficulty, botMode, 13 + i * 7);
       bot.aiSpread = DIFFICULTY_INFO[this.config.difficulty].accuracy;
       this.planes.push(bot);
     }
@@ -411,12 +425,22 @@ export class LocalMatch {
       ];
       this.deps.callbacks.onChat("CONTROL", lines[Math.floor(Math.random() * lines.length)], "SYSTEM");
     }
-    if (this.timeLeft <= 0) this.endMatch();
+    if (!this.survival && this.timeLeft <= 0) this.endMatch();
+  }
+
+  private get teamMode(): boolean {
+    return this.config.mode !== "ffa";
   }
 
   private simulate(dt: number): void {
     this.simTime += dt;
-    this.timeLeft -= dt;
+    if (this.survival) {
+      this.survivalTime += dt;
+      this.nextWaveIn -= dt;
+      if (this.nextWaveIn <= 0) this.startNextWave();
+    } else {
+      this.timeLeft -= dt;
+    }
     for (const p of this.planes) {
       if (!p.runtime.alive) {
         if (this.simTime >= p.runtime.respawnAt) this.respawn(p);
@@ -497,7 +521,34 @@ export class LocalMatch {
         this.deps.effects.damageFlame(exhaust, fwd);
       }
     }
-    if (this.timeLeft <= 0) this.endMatch();
+    if (!this.survival && this.timeLeft <= 0) this.endMatch();
+  }
+
+  private startNextWave(): void {
+    this.wave++;
+    this.nextWaveIn = 30;
+    const adds = this.wave >= 6 ? 2 : 1;
+    let spawned = 0;
+    for (let i = 0; i < adds; i++) {
+      if (this.planes.length >= 12) break;
+      this.spawnReinforcement();
+      spawned++;
+    }
+    this.deps.callbacks.onChat("CONTROL", `Wave ${this.wave} inbound. Stay off the furniture.`, "SYSTEM");
+    this.deps.callbacks.onCombatCallout(`WAVE ${this.wave}`, spawned > 0 ? "HOSTILE REINFORCEMENTS" : "MAXIMUM CONTACTS", "blue");
+  }
+
+  private spawnReinforcement(): void {
+    const index = this.reinforcementIndex++;
+    const names = BOT_NAMES_AXIS;
+    const name = names[index % names.length];
+    const def = AIRCRAFT[(index + 1 + Math.floor(Math.random() * 3)) % AIRCRAFT.length];
+    const spawn = getSpawnForTeam("AXIS");
+    const difficulty = this.wave >= 6 ? "ace" : this.config.difficulty;
+    const bot = this.createPlane(`bot-r-${index}`, name, "AXIS", def, true, spawn.x, spawn.y, spawn.z, spawn.yaw);
+    bot.bot = new BotPilot(difficulty, "tdm", 37 + index * 11);
+    bot.aiSpread = DIFFICULTY_INFO[difficulty].accuracy;
+    this.planes.push(bot);
   }
 
   private handleWeapons(p: LocalPlane): void {
@@ -525,7 +576,7 @@ export class LocalMatch {
       if (worldHit) hitDist = worldHit.distance;
       for (const other of this.planes) {
         if (other === p || !other.runtime.alive) continue;
-        if (this.config.mode === "tdm" && other.runtime.team === p.runtime.team) continue;
+        if (this.teamMode && other.runtime.team === p.runtime.team) continue;
         tmp2.set(other.runtime.flight.x, other.runtime.flight.y, other.runtime.flight.z);
         const t = raySphere(muzzle, dir, hitDist, tmp2, WORLD.planeRadius + 0.15);
         if (t !== null && t < hitDist) {
@@ -641,7 +692,7 @@ export class LocalMatch {
     let bestDist = 140;
     for (const other of this.planes) {
       if (other === p || !other.runtime.alive) continue;
-      if (this.config.mode === "tdm" && other.runtime.team === p.runtime.team) continue;
+      if (this.teamMode && other.runtime.team === p.runtime.team) continue;
       tmp.set(other.runtime.flight.x - p.runtime.flight.x, other.runtime.flight.y - p.runtime.flight.y, other.runtime.flight.z - p.runtime.flight.z);
       const d = tmp.length();
       if (d > bestDist) continue;
@@ -783,7 +834,7 @@ export class LocalMatch {
       if (!explodeAt) {
         for (const p of this.planes) {
           if (!p.runtime.alive || p.runtime.id === r.ownerId) continue;
-          if (this.config.mode === "tdm" && p.runtime.team === r.team) continue;
+          if (this.teamMode && p.runtime.team === r.team) continue;
           tmp.set(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z);
           const distSq = distancePointSegmentSq(tmp, oldPos, newPos);
           if (distSq < 1.45 * 1.45) {
@@ -815,7 +866,7 @@ export class LocalMatch {
     let rocketHitPlayer = false;
     for (const p of this.planes) {
       if (!p.runtime.alive) continue;
-      if (this.config.mode === "tdm" && p.runtime.team === r.team) continue;
+      if (this.teamMode && p.runtime.team === r.team) continue;
       if (p.runtime.id === r.ownerId) continue;
       if (r.decoyed) continue;
       tmp.set(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z);
@@ -1012,11 +1063,19 @@ export class LocalMatch {
       this.deps.callbacks.onChat(killer.runtime.name, lines[Math.floor(Math.random() * lines.length)], killer.runtime.team);
     }
     if (victim === this.player) {
+      if (this.survival) {
+        this.lives = Math.max(0, this.lives - 1);
+        this.deps.callbacks.onChat("CONTROL", this.lives > 0 ? `${this.lives} toy pilot${this.lives === 1 ? "" : "s"} left in the box.` : "No pilots left. Sortie over.", "SYSTEM");
+      }
       this.deps.callbacks.onKilled();
       this.deps.audio.stopEngine();
     }
     if (killer === this.player) this.deps.audio.hit();
-    if (this.planes.every((p) => !p.runtime.alive) || this.timeLeft <= 0) this.endMatch();
+    if (this.survival) {
+      if (victim === this.player && this.lives <= 0) this.endMatch();
+    } else if (this.planes.every((p) => !p.runtime.alive) || this.timeLeft <= 0) {
+      this.endMatch();
+    }
   }
 
   private awardStreak(killer: LocalPlane, quick: boolean): void {
@@ -1115,7 +1174,7 @@ export class LocalMatch {
     let bestScore = Infinity;
     for (const p of this.planes) {
       if (!p.runtime.alive || p === this.player) continue;
-      if (this.config.mode === "tdm" && p.runtime.team === this.player.runtime.team) continue;
+      if (this.teamMode && p.runtime.team === this.player.runtime.team) continue;
       tmp.set(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z);
       const to = tmp.clone().sub(playerPos);
       const dist = to.length();
@@ -1165,7 +1224,7 @@ export class LocalMatch {
   }
 
   getMode(): GameMode {
-    return this.config.mode;
+    return this.survival || this.config.mode === "ffa" ? "ffa" : "tdm";
   }
 
   getPlayerPosition(): Vector3 {
@@ -1191,7 +1250,7 @@ export class LocalMatch {
     for (const other of this.planes) {
       if (other === this.player) continue;
       if (!other.runtime.alive) continue;
-      if (this.config.mode === "tdm" && other.runtime.team === p.team) continue;
+      if (this.teamMode && other.runtime.team === p.team) continue;
       radar.push({
         x: other.runtime.flight.x - f.x,
         y: other.runtime.flight.z - f.z,
@@ -1202,8 +1261,12 @@ export class LocalMatch {
     }
     const hudTarget = this.lastHudTarget;
     return {
-      mode: this.config.mode,
-      timeLeft: this.timeLeft,
+      mode: this.survival || this.config.mode === "ffa" ? "ffa" : "tdm",
+      survival: this.survival,
+      wave: this.wave,
+      lives: this.lives,
+      survivalTime: this.survivalTime,
+      timeLeft: this.survival ? this.survivalTime : this.timeLeft,
       scoreRAF: this.scoreRAF,
       scoreAXIS: this.scoreAXIS,
       health: p.health,
@@ -1267,23 +1330,26 @@ export class LocalMatch {
     const rows = this.getScoreboard();
     let win = false;
     let draw = false;
-    if (this.config.mode === "tdm") {
+    if (this.survival) {
+      win = false;
+      draw = false;
+    } else if (this.teamMode) {
       win = this.scoreRAF > this.scoreAXIS;
       draw = this.scoreRAF === this.scoreAXIS;
     } else {
       win = rows[0]?.isPlayer ?? false;
       draw = false;
     }
-    this.deps.audio.fanfare(win);
+    this.deps.audio.fanfare(this.survival ? this.wave >= 5 : win);
     this.disabled = true;
     if (this.player.runtime.alive) {
       this.stats.longestLife = Math.max(this.stats.longestLife, this.simTime - this.lifeStartedAt);
     }
     const stats: MatchStats = { ...this.stats };
-    this.result = {
+    const result: MatchResult = {
       win,
       draw,
-      mode: this.config.mode,
+      mode: this.survival || this.config.mode === "ffa" ? "ffa" : "tdm",
       scoreRAF: this.scoreRAF,
       scoreAXIS: this.scoreAXIS,
       rows,
@@ -1291,8 +1357,10 @@ export class LocalMatch {
       playerDeaths: this.player.runtime.deaths,
       stats,
       medals: medalsFor(stats, this.player.runtime.kills, this.player.runtime.deaths),
+      survival: this.survival ? { wave: this.wave, time: this.survivalTime, lives: this.lives, score: this.player.runtime.score } : undefined,
     };
-    this.deps.callbacks.onMatchEnd(this.result);
+    this.result = result;
+    this.deps.callbacks.onMatchEnd(result);
   }
 
   addChat(name: string, text: string): void {

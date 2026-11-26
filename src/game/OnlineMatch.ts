@@ -802,6 +802,10 @@ export class OnlineMatch implements ActiveMatch {
     });
     return {
       mode: this.state.mode,
+      survival: false,
+      wave: 0,
+      lives: 0,
+      survivalTime: 0,
       timeLeft: this.state.timeLeft,
       scoreRAF: this.state.scoreRAF,
       scoreAXIS: this.state.scoreAXIS,

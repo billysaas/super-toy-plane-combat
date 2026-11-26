@@ -1,9 +1,9 @@
 export type Team = "RAF" | "AXIS";
 export type GameMode = "tdm" | "ffa";
+export type SoloMode = GameMode | "survival";
 export type Difficulty = "rookie" | "pilot" | "ace";
 export type CameraMode = "chase" | "cockpit";
 export type Quality = "low" | "medium" | "high";
-
 export interface AircraftDef {
   id: string;
   name: string;
@@ -179,7 +179,7 @@ export const MOUSE_SENSITIVITY_DEFAULT = 1;
 export const RADAR_RANGE = 115;
 
 export interface SoloConfig {
-  mode: GameMode;
+  mode: SoloMode;
   enemies: number;
   difficulty: Difficulty;
   aircraftId: string;
