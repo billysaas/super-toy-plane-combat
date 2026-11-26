@@ -12,7 +12,7 @@ import {
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { Room } from "colyseus.js";
 import { STATIC_BOXES } from "../../shared/worldLayout";
-import { AIRCRAFT, DEFAULT_THROTTLE, type Settings, type SoloConfig } from "../../shared/config";
+import { AIRCRAFT, DEFAULT_THROTTLE, clamp, type Settings, type SoloConfig } from "../../shared/config";
 import { PICKUP_INFO } from "../../shared/powerups";
 import { AssetStore } from "./AssetStore";
 import { Environment } from "./Environment";
@@ -62,6 +62,7 @@ export class Game {
   private chatPaused = false;
   private latestLobbyHost = "";
   private roomsBusy = false;
+  private combatIntensitySent = -1;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -306,6 +307,7 @@ export class Game {
       this.ui.hidePause();
       this.ui.hideScoreboard();
       this.audio.stopEngine();
+      this.audio.setCombatMusic(false);
       this.ui.showResults(result);
     } else if (phase === "lobby") {
       if (this.onlineMatch) {
@@ -317,6 +319,7 @@ export class Game {
         this.ui.hideResults();
         this.ui.hidePause();
         this.input.setEnabled(false);
+        this.audio.setCombatMusic(false);
         this.audio.setMenuMusic(true);
       }
     }
@@ -359,6 +362,7 @@ export class Game {
     this.ui.hidePause();
     this.ui.hideScoreboard();
     this.audio.stopEngine();
+    this.audio.setCombatMusic(false);
     this.ui.showScreen("multiplayer", false);
     this.audio.setMenuMusic(true);
     this.net.listRooms().catch(() => undefined);
@@ -397,6 +401,9 @@ export class Game {
     this.match = match;
     if (!this.input.usesTouch) this.input.requestPointerLock();
     this.ui.showToast("ONLINE SORTIE · GOOD HUNTING", 2.2);
+    this.audio.setCombatMusic(true);
+    this.audio.setCombatIntensity(0.62);
+    this.combatIntensitySent = 0.62;
   }
 
   private applyEnvironmentLighting(): void {
@@ -516,6 +523,7 @@ export class Game {
             this.ended = true;
             this.input.setEnabled(false);
             this.input.releasePointerLock();
+            this.audio.setCombatMusic(false);
             this.ui.showResults(result);
           },
           onHit: () => undefined,
@@ -530,6 +538,9 @@ export class Game {
     this.match = match;
     if (!this.input.usesTouch) this.input.requestPointerLock();
     this.ui.showToast(config.mode === "tdm" ? "TEAM DEATHMATCH" : "FREE FOR ALL", 1.8);
+    this.audio.setCombatMusic(true);
+    this.audio.setCombatIntensity(0.62);
+    this.combatIntensitySent = 0.62;
   }
 
   private startRematch(): void {
@@ -561,6 +572,7 @@ export class Game {
     this.ui.hideScoreboard();
     this.ui.showPause();
     this.match.setPaused(true);
+    this.audio.setCombatMusicDucked(true);
   }
 
   private resume(): void {
@@ -571,6 +583,7 @@ export class Game {
     this.input.setEnabled(true);
     this.input.clear();
     this.match.setPaused(false);
+    this.audio.setCombatMusicDucked(false);
     if (!this.input.usesTouch) this.input.requestPointerLock();
   }
 
@@ -627,6 +640,8 @@ export class Game {
     this.ui.hidePause();
     this.ui.hideResults();
     this.audio.stopEngine();
+    this.audio.setCombatMusic(false);
+    this.audio.setCombatMusicDucked(false);
   }
 
   private openChat(): void {
@@ -690,6 +705,12 @@ export class Game {
         this.ui.updateHud(hud);
         const speedFx = hud.boosting ? 0.82 : hud.speed > 240 ? (hud.speed - 240) / 220 : 0;
         this.postFx?.setSpeed(speedFx);
+        const healthRatio = hud.maxHealth > 0 ? hud.health / hud.maxHealth : 1;
+        const intensity = clamp(0.42 + (hud.target ? 0.2 : 0) + (hud.streak >= 3 ? 0.12 : 0) + (healthRatio < 0.4 ? 0.16 : 0) + (hud.boosting ? 0.05 : 0), 0, 1);
+        if (Math.abs(intensity - this.combatIntensitySent) > 0.04) {
+          this.combatIntensitySent = intensity;
+          this.audio.setCombatIntensity(intensity);
+        }
         const needPointer = !this.input.usesTouch && !this.input.isLocked && !this.ui.isChatOpen;
         if (needPointer !== this.lastPointerPrompt) {
           this.lastPointerPrompt = needPointer;
