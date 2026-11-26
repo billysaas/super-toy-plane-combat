@@ -350,6 +350,33 @@ export class Effects {
     });
   }
 
+  damageFlame(position: Vector3, direction: Vector3): void {
+    this.fire.spawn({
+      x: position.x + (Math.random() - 0.5) * 0.24,
+      y: position.y + (Math.random() - 0.5) * 0.24,
+      z: position.z + (Math.random() - 0.5) * 0.24,
+      vx: -direction.x * 4 + (Math.random() - 0.5) * 1.4,
+      vy: -direction.y * 4 + 0.6 + Math.random() * 1.2,
+      vz: -direction.z * 4 + (Math.random() - 0.5) * 1.4,
+      life: 0.18 + Math.random() * 0.16,
+      size: 0.5 + Math.random() * 0.35,
+      sizeGrow: 1.6,
+      drag: 0.9,
+      r: 2.8, g: 1.1, b: 0.16, a: 0.9,
+    });
+    this.smoke.spawn({
+      x: position.x, y: position.y, z: position.z,
+      vx: -direction.x * 1.8 + (Math.random() - 0.5) * 0.6,
+      vy: 0.7 + Math.random() * 0.9,
+      vz: -direction.z * 1.8 + (Math.random() - 0.5) * 0.6,
+      life: 0.8 + Math.random() * 0.6,
+      size: 1.2,
+      sizeGrow: 2.6,
+      drag: 0.95,
+      r: 0.1, g: 0.09, b: 0.08, a: 0.55,
+    });
+  }
+
   boostTrail(position: Vector3, direction: Vector3, color: number): void {
     const c = new Color(color);
     this.fire.spawn({

@@ -147,14 +147,17 @@ export class AudioManager {
     }, 400);
   }
 
-  setEngine(speed: number, boost: boolean, alive: boolean): void {
+  setEngine(speed: number, boost: boolean, alive: boolean, health = 1): void {
     if (!this.ctx || !this.engineOsc || !this.engineOsc2 || !this.engineFilter || !this.engineGain) return;
     const now = this.ctx.currentTime;
-    const target = alive ? 0.045 + Math.min(0.07, speed / 900) + (boost ? 0.035 : 0) : 0;
+    const roughness = 1 - Math.max(0, Math.min(1, health));
+    const rattle = roughness > 0.35 && Math.random() < 0.07 ? (Math.random() - 0.5) * 32 * roughness : 0;
+    const target = alive ? (0.045 + Math.min(0.07, speed / 900) + (boost ? 0.035 : 0)) * (0.55 + health * 0.45) : 0;
     this.engineGain.gain.setTargetAtTime(target, now, 0.12);
-    this.engineOsc.frequency.setTargetAtTime(58 + speed * 1.7 + (boost ? 38 : 0), now, 0.1);
-    this.engineOsc2.frequency.setTargetAtTime(29 + speed * 0.9, now, 0.12);
-    this.engineFilter.frequency.setTargetAtTime(280 + speed * 13 + (boost ? 500 : 0), now, 0.1);
+    this.engineOsc.frequency.setTargetAtTime(58 + speed * 1.7 + (boost ? 38 : 0) + rattle, now, 0.1);
+    this.engineOsc2.frequency.setTargetAtTime(29 + speed * 0.9 + rattle * 0.4, now, 0.12);
+    this.engineFilter.frequency.setTargetAtTime(280 + speed * 13 + (boost ? 500 : 0) - roughness * 120, now, 0.1);
+    this.engineFilter.Q.setTargetAtTime(1.2 + roughness * 3.4, now, 0.15);
   }
 
   gun(team = false): void {
