@@ -8,6 +8,7 @@ export interface Controls {
   boost: boolean;
   fire: boolean;
   rocket: boolean;
+  flare: boolean;
   autoLevelRoll: boolean;
   autoLevelPitch: boolean;
 }
@@ -20,6 +21,7 @@ export const NEUTRAL_CONTROLS: Controls = {
   boost: false,
   fire: false,
   rocket: false,
+  flare: false,
   autoLevelRoll: true,
   autoLevelPitch: true,
 };
@@ -50,6 +52,7 @@ export interface PlaneRuntime {
   shieldMax: number;
   ammo: number;
   rockets: number;
+  flares: number;
   alive: boolean;
   respawnAt: number;
   invulnerableUntil: number;
@@ -128,6 +131,7 @@ export interface InputPacket {
   boost: boolean;
   fire: boolean;
   rocket: boolean;
+  flare: boolean;
   autoLevelRoll: boolean;
   autoLevelPitch: boolean;
 }

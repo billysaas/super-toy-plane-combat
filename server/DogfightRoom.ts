@@ -17,8 +17,10 @@ interface PlayerSim {
   flight: FlightState;
   controls: Controls;
   prevRocket: boolean;
+  prevFlare: boolean;
   fireCooldown: number;
   rocketCooldown: number;
+  flareCooldown: number;
   nextCollisionAt: number;
   lastInputAt: number;
   lastHitBy: string | null;
@@ -54,6 +56,20 @@ interface SimRocket {
   vy: number;
   vz: number;
   targetId: string | null;
+  flare: SimFlare | null;
+  decoyed: boolean;
+  life: number;
+}
+
+interface SimFlare {
+  id: number;
+  ownerId: string;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
   life: number;
 }
 
@@ -86,8 +102,10 @@ export class DogfightRoom extends Room<DogfightState> {
   private sims = new Map<string, PlayerSim>();
   private balloons: SimBalloon[] = [];
   private rockets: SimRocket[] = [];
+  private flares: SimFlare[] = [];
   private simTime = 0;
   private nextRocketId = 1;
+  private nextFlareId = 1;
   private mode: "tdm" | "ffa" = "tdm";
   private matchLength = WORLD.matchSeconds;
   private maxPlayers = 12;
@@ -180,6 +198,7 @@ export class DogfightRoom extends Room<DogfightState> {
     state.maxHealth = def.maxHealth;
     state.ammo = def.gunAmmo;
     state.rockets = def.rocketAmmo;
+    state.flares = def.flareAmmo;
     state.x = spawn.x;
     state.y = spawn.y;
     state.z = spawn.z;
@@ -191,10 +210,12 @@ export class DogfightRoom extends Room<DogfightState> {
       state,
       def,
       flight,
-      controls: { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevelRoll: true, autoLevelPitch: true },
+      controls: { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, flare: false, autoLevelRoll: true, autoLevelPitch: true },
       prevRocket: false,
+      prevFlare: false,
       fireCooldown: 0,
       rocketCooldown: 0,
+      flareCooldown: 0,
       nextCollisionAt: 0,
       lastInputAt: 0,
       lastHitBy: null,
@@ -265,6 +286,7 @@ export class DogfightRoom extends Room<DogfightState> {
       boost: Boolean(raw.boost),
       fire: Boolean(raw.fire),
       rocket: Boolean(raw.rocket),
+      flare: Boolean(raw.flare),
       autoLevelRoll: Boolean(raw.autoLevelRoll),
       autoLevelPitch: Boolean(raw.autoLevelPitch),
     };
@@ -300,6 +322,7 @@ export class DogfightRoom extends Room<DogfightState> {
     this.state.scoreRAF = 0;
     this.state.scoreAXIS = 0;
     this.rockets = [];
+    this.flares = [];
     this.simTime = 0;
     this.resetBalloons();
     for (const sim of this.sims.values()) {
@@ -319,6 +342,7 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.health = sim.def.maxHealth;
     sim.state.ammo = sim.def.gunAmmo;
     sim.state.rockets = sim.def.rocketAmmo;
+    sim.state.flares = sim.def.flareAmmo;
     sim.state.maxHealth = sim.def.maxHealth;
     sim.state.armor = 0;
     sim.state.shield = 0;
@@ -339,9 +363,12 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.lastHitAt = -100;
     sim.controls.fire = false;
     sim.controls.rocket = false;
+    sim.controls.flare = false;
     sim.controls.autoLevelRoll = true;
     sim.controls.autoLevelPitch = true;
     sim.prevRocket = true;
+    sim.prevFlare = true;
+    sim.flareCooldown = 0;
     this.syncState(sim);
     if (!initial) this.broadcast("respawn", { id: sim.id });
   }
@@ -373,12 +400,14 @@ export class DogfightRoom extends Room<DogfightState> {
         sim.controls.yaw = 0;
         sim.controls.fire = false;
         sim.controls.rocket = false;
+        sim.controls.flare = false;
         sim.controls.throttle = 0.55;
         sim.controls.autoLevelRoll = true;
         sim.controls.autoLevelPitch = true;
       }
       sim.fireCooldown = Math.max(0, sim.fireCooldown - dt);
       sim.rocketCooldown = Math.max(0, sim.rocketCooldown - dt);
+      sim.flareCooldown = Math.max(0, sim.flareCooldown - dt);
       if (sim.shield > 0 && this.simTime >= sim.shieldUntil) {
         sim.shield = 0;
         sim.state.shield = 0;
@@ -408,6 +437,7 @@ export class DogfightRoom extends Room<DogfightState> {
       this.syncState(sim);
     }
     this.updateRockets(dt);
+    this.updateFlares(dt);
     this.updateBalloons();
     if (this.state.timeLeft <= 0) this.endMatch();
   }
@@ -497,10 +527,86 @@ export class DogfightRoom extends Room<DogfightState> {
         vy: fwd.y * WORLD.rocketSpeed,
         vz: fwd.z * WORLD.rocketSpeed,
         targetId: target?.id ?? null,
+        flare: null,
+        decoyed: false,
         life: 5,
       };
       this.rockets.push(rocket);
       this.broadcast("rocketSpawn", { id: rocket.id, ownerId: rocket.ownerId, team: rocket.team, x: rocket.x, y: rocket.y, z: rocket.z, vx: rocket.vx, vy: rocket.vy, vz: rocket.vz, targetId: rocket.targetId });
+    }
+    const flarePressed = sim.controls.flare && !sim.prevFlare;
+    sim.prevFlare = sim.controls.flare;
+    if (flarePressed && sim.flareCooldown <= 0 && sim.state.flares > 0) {
+      sim.state.flares--;
+      sim.flareCooldown = 1.6;
+      this.deployFlares(sim);
+    }
+  }
+
+  private deployFlares(sim: PlayerSim): void {
+    q.set(sim.flight.qx, sim.flight.qy, sim.flight.qz, sim.flight.qw);
+    fwd.set(0, 0, -1).applyQuaternion(q);
+    const right = new Vector3(1, 0, 0).applyQuaternion(q);
+    const baseX = sim.flight.x - fwd.x * 4.4;
+    const baseY = sim.flight.y - 1.8;
+    const baseZ = sim.flight.z - fwd.z * 4.4;
+    const start = this.flares.length;
+    const payload: Array<{ id: number; x: number; y: number; z: number; vx: number; vy: number; vz: number }> = [];
+    for (let i = 0; i < 3; i++) {
+      const side = i - 1;
+      const flare: SimFlare = {
+        id: this.nextFlareId++,
+        ownerId: sim.id,
+        x: baseX + right.x * side * 2.1,
+        y: baseY + (i === 1 ? 0.3 : 0),
+        z: baseZ + right.z * side * 2.1,
+        vx: -fwd.x * 3 + right.x * side * 6 + (Math.random() - 0.5) * 1.5,
+        vy: -2.4 + Math.random() * 1.2,
+        vz: -fwd.z * 3 + right.z * side * 6 + (Math.random() - 0.5) * 1.5,
+        life: WORLD.flareLifetime,
+      };
+      this.flares.push(flare);
+      payload.push({ id: flare.id, x: flare.x, y: flare.y, z: flare.z, vx: flare.vx, vy: flare.vy, vz: flare.vz });
+    }
+    this.broadcast("flareSpawn", { ownerId: sim.id, flares: payload });
+    for (const rocket of this.rockets) {
+      if (rocket.targetId !== sim.id) continue;
+      const dist = Math.hypot(rocket.x - sim.flight.x, rocket.y - sim.flight.y, rocket.z - sim.flight.z);
+      if (dist > WORLD.flareRadius) continue;
+      let best: SimFlare | null = null;
+      let bestDist = Infinity;
+      for (let i = start; i < this.flares.length; i++) {
+        const flare = this.flares[i];
+        const d = (rocket.x - flare.x) ** 2 + (rocket.y - flare.y) ** 2 + (rocket.z - flare.z) ** 2;
+        if (d < bestDist) {
+          bestDist = d;
+          best = flare;
+        }
+      }
+      if (!best) continue;
+      rocket.flare = best;
+      rocket.targetId = null;
+      rocket.decoyed = true;
+      rocket.life = Math.min(rocket.life, 2.4);
+      this.broadcast("rocketDecoy", { id: rocket.id, x: best.x, y: best.y, z: best.z });
+    }
+  }
+
+  private updateFlares(dt: number): void {
+    for (let i = this.flares.length - 1; i >= 0; i--) {
+      const flare = this.flares[i];
+      flare.life -= dt;
+      if (flare.life <= 0) {
+        this.flares.splice(i, 1);
+        continue;
+      }
+      const drag = Math.pow(0.86, dt * 60);
+      flare.vx *= drag;
+      flare.vz *= drag;
+      flare.vy = flare.vy * drag - 5 * dt;
+      flare.x += flare.vx * dt;
+      flare.y += flare.vy * dt;
+      flare.z += flare.vz * dt;
     }
   }
 
@@ -526,7 +632,20 @@ export class DogfightRoom extends Room<DogfightState> {
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const r = this.rockets[i];
       r.life -= dt;
-      if (r.targetId) {
+      if (r.flare) {
+        if (r.flare.life > 0) {
+          tmp.set(r.flare.x - r.x, r.flare.y - r.y, r.flare.z - r.z).normalize();
+          const speed = Math.hypot(r.vx, r.vy, r.vz);
+          const v = new Vector3(r.vx / speed, r.vy / speed, r.vz / speed);
+          v.lerp(tmp, Math.min(1, dt * 1.8)).normalize();
+          r.vx = v.x * speed;
+          r.vy = v.y * speed;
+          r.vz = v.z * speed;
+        } else {
+          r.flare = null;
+          r.life = Math.min(r.life, 0.3);
+        }
+      } else if (r.targetId) {
         const target = this.sims.get(r.targetId);
         if (target?.state.alive) {
           tmp.set(target.flight.x - r.x, target.flight.y - r.y, target.flight.z - r.z).normalize();
@@ -549,6 +668,9 @@ export class DogfightRoom extends Room<DogfightState> {
       if (sweep.hit) {
         detonate = true;
         at = sweep.position;
+      } else if (r.flare) {
+        tmp.set(r.flare.x, r.flare.y, r.flare.z);
+        if (distancePointSegmentSq(tmp, old, next) < 2.2 * 2.2) detonate = true;
       } else {
         for (const other of this.sims.values()) {
           if (!other.state.alive || other.id === r.ownerId) continue;
@@ -572,17 +694,19 @@ export class DogfightRoom extends Room<DogfightState> {
         }
       }
       if (detonate || r.life <= 0) {
-        this.broadcast("explosion", { id: r.id, x: at.x, y: at.y, z: at.z, scale: 1.5 });
+        this.broadcast("explosion", { id: r.id, x: at.x, y: at.y, z: at.z, scale: r.decoyed ? 1.1 : 1.5 });
         const owner = this.sims.get(r.ownerId) ?? null;
-        for (const other of this.sims.values()) {
-          if (!other.state.alive) continue;
-          if (this.mode === "tdm" && other.state.team === r.team) continue;
-          if (other.id === r.ownerId) continue;
-          tmp.set(other.flight.x, other.flight.y, other.flight.z);
-          const dist = tmp.distanceTo(at);
-          if (dist < WORLD.rocketRadius) {
-            const amount = WORLD.rocketDamage * clamp(1 - dist / WORLD.rocketRadius, 0.18, 1);
-            this.applyDamage(other, amount, owner, "rockets");
+        if (!r.decoyed) {
+          for (const other of this.sims.values()) {
+            if (!other.state.alive) continue;
+            if (this.mode === "tdm" && other.state.team === r.team) continue;
+            if (other.id === r.ownerId) continue;
+            tmp.set(other.flight.x, other.flight.y, other.flight.z);
+            const dist = tmp.distanceTo(at);
+            if (dist < WORLD.rocketRadius) {
+              const amount = WORLD.rocketDamage * clamp(1 - dist / WORLD.rocketRadius, 0.18, 1);
+              this.applyDamage(other, amount, owner, "rockets");
+            }
           }
         }
         const blastRadius = WORLD.rocketRadius + BALLOON.hitRadius;
@@ -802,6 +926,7 @@ export class DogfightRoom extends Room<DogfightState> {
       sim.state.respawnIn = 0;
     }
     this.rockets = [];
+    this.flares = [];
     this.broadcast("matchEnd", { scoreRAF: this.state.scoreRAF, scoreAXIS: this.state.scoreAXIS, mode: this.mode });
     this.registerSelf();
   }

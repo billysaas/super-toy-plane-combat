@@ -413,6 +413,54 @@ export class Effects {
     });
   }
 
+  flareBurst(position: Vector3): void {
+    for (let i = 0; i < 14; i++) {
+      const dir = new Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+      this.fire.spawn({
+        x: position.x, y: position.y, z: position.z,
+        vx: dir.x * (6 + Math.random() * 9),
+        vy: dir.y * (6 + Math.random() * 9),
+        vz: dir.z * (6 + Math.random() * 9),
+        life: 0.25 + Math.random() * 0.25,
+        size: 0.34,
+        drag: 0.94,
+        r: 2.4, g: 1.4, b: 0.4, a: 0.9,
+      });
+    }
+    this.smoke.spawn({
+      x: position.x, y: position.y, z: position.z,
+      life: 0.55, size: 1.6, sizeGrow: 3.4, drag: 0.95,
+      r: 0.5, g: 0.48, b: 0.42, a: 0.35,
+    });
+  }
+
+  flareTrail(position: Vector3, direction: Vector3): void {
+    this.fire.spawn({
+      x: position.x, y: position.y, z: position.z,
+      vx: -direction.x * 2 + (Math.random() - 0.5) * 0.8,
+      vy: 0.4 + Math.random() * 1.2,
+      vz: -direction.z * 2 + (Math.random() - 0.5) * 0.8,
+      life: 0.18 + Math.random() * 0.12,
+      size: 0.35,
+      sizeGrow: 1.8,
+      drag: 0.92,
+      r: 2.2, g: 1.1, b: 0.25, a: 0.8,
+    });
+    if (Math.random() < 0.55) {
+      this.smoke.spawn({
+        x: position.x, y: position.y, z: position.z,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: 0.8 + Math.random() * 0.8,
+        vz: (Math.random() - 0.5) * 1.2,
+        life: 0.8 + Math.random() * 0.6,
+        size: 1.1,
+        sizeGrow: 2.6,
+        drag: 0.95,
+        r: 0.38, g: 0.35, b: 0.32, a: 0.42,
+      });
+    }
+  }
+
   explosion(position: Vector3, scale = 1, teamColor = 0xffa53d): void {
     let blast = this.blasts.find((b) => b.life <= 0);
     if (!blast) blast = this.blasts.reduce((a, b) => (a.life < b.life ? a : b));

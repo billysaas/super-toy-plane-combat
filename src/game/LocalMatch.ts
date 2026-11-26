@@ -1,4 +1,4 @@
-import { CylinderGeometry, ConeGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Quaternion, Scene, Vector3 } from "three";
+import { CylinderGeometry, ConeGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Quaternion, Scene, SphereGeometry, Vector3 } from "three";
 import {
   AIRCRAFT,
   BOT_NAMES_AXIS,
@@ -69,6 +69,7 @@ export interface HudData {
   throttle: number;
   ammo: number;
   rockets: number;
+  flares: number;
   cameraMode: CameraMode;
   alive: boolean;
   respawnIn: number;
@@ -81,6 +82,7 @@ export interface HudData {
   boosting: boolean;
   invulnerable: boolean;
   stalled: boolean;
+  missileWarning: boolean;
   target: HudTarget | null;
   radar: RadarBlip[];
   playerHeading: number;
@@ -152,6 +154,8 @@ interface LocalPlane {
   streak: number;
   lastKillAt: number;
   multiKill: number;
+  previousFlare: boolean;
+  flareCooldown: number;
 }
 
 interface LocalBalloon {
@@ -174,7 +178,22 @@ interface RocketProjectile {
   vz: number;
   life: number;
   targetId: string | null;
+  flare: FlareProjectile | null;
+  decoyed: boolean;
   mesh: Group;
+}
+
+interface FlareProjectile {
+  id: number;
+  ownerId: string;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  life: number;
+  mesh: Mesh;
 }
 
 const fwd = new Vector3();
@@ -186,6 +205,9 @@ const rocketGeo = new CylinderGeometry(0.07, 0.1, 0.7, 6);
 const rocketNoseGeo = new ConeGeometry(0.13, 0.3, 6);
 const rocketBodyMat = new MeshStandardMaterial({ color: 0xd9d2bd, roughness: 0.6 });
 const rocketGlowMat = new MeshBasicMaterial({ color: 0xffb74d });
+const flareGeo = new SphereGeometry(0.17, 6, 4);
+const flareMat = new MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.92, blending: 2, depthWrite: false });
+flareMat.color.multiplyScalar(1.7);
 
 export class LocalMatch {
   private deps: LocalMatchDeps;
@@ -193,6 +215,8 @@ export class LocalMatch {
   private planes: LocalPlane[] = [];
   private player!: LocalPlane;
   private rockets: RocketProjectile[] = [];
+  private flares: FlareProjectile[] = [];
+  private nextFlareId = 1;
   private balloonField: BalloonField;
   private balloons: LocalBalloon[] = [];
   private elapsed = 0;
@@ -214,13 +238,14 @@ export class LocalMatch {
   private lastControls: Controls;
   private killMarkers = 0;
   private result: MatchResult | null = null;
+  private missileWarned = false;
 
   constructor(deps: LocalMatchDeps, config: SoloConfig = DEFAULT_SOLO) {
     this.deps = deps;
     this.config = { ...config };
     this.cameraMode = deps.settings.camera;
     this.deps.camera.setMode(this.cameraMode);
-    this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevelRoll: false, autoLevelPitch: false };
+    this.lastControls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, flare: false, autoLevelRoll: false, autoLevelPitch: false };
     this.balloonField = new BalloonField(this.deps.scene, this.deps.settings.quality);
     this.balloons = BALLOON_SPAWNS.map((_, index) => ({
       index,
@@ -281,6 +306,7 @@ export class LocalMatch {
       shieldMax: BALLOON.shieldMax,
       ammo: def.gunAmmo,
       rockets: def.rocketAmmo,
+      flares: def.flareAmmo,
       alive: true,
       respawnAt: 0,
       invulnerableUntil: 0,
@@ -297,7 +323,7 @@ export class LocalMatch {
     view.group.quaternion.set(flight.qx, flight.qy, flight.qz, flight.qw);
     this.deps.scene.add(view.group);
     view.sync(runtime, 0, false);
-    const controls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, autoLevelRoll: false, autoLevelPitch: false };
+    const controls: Controls = { pitch: 0, roll: 0, yaw: 0, throttle: DEFAULT_THROTTLE, boost: false, fire: false, rocket: false, flare: false, autoLevelRoll: false, autoLevelPitch: false };
     return {
       runtime,
       def,
@@ -315,6 +341,8 @@ export class LocalMatch {
       streak: 0,
       lastKillAt: -100,
       multiKill: 0,
+      previousFlare: false,
+      flareCooldown: 0,
     };
   }
 
@@ -332,6 +360,7 @@ export class LocalMatch {
     this.lastControls.boost = raw.boost;
     this.lastControls.fire = raw.fire;
     this.lastControls.rocket = raw.rocket;
+    this.lastControls.flare = raw.flare;
     this.lastControls.autoLevelRoll = raw.autoLevelRoll;
     this.lastControls.autoLevelPitch = raw.autoLevelPitch;
     this.player.controls = this.lastControls;
@@ -351,6 +380,9 @@ export class LocalMatch {
     this.updateHudTarget();
     this.hitFlash = Math.max(0, this.hitFlash - frameDt * 4.2);
     this.damageFlash = Math.max(0, this.damageFlash - frameDt * 2.2);
+    const incoming = this.player.runtime.alive && this.rockets.some((r) => r.targetId === this.player.runtime.id);
+    if (incoming && !this.missileWarned) this.deps.audio.lockWarning();
+    this.missileWarned = incoming;
     this.lastChat -= frameDt;
     if (this.lastChat <= 0) {
       this.lastChat = 14 + Math.random() * 18;
@@ -377,6 +409,7 @@ export class LocalMatch {
       }
       p.runtime.fireCooldown = Math.max(0, p.runtime.fireCooldown - dt);
       p.runtime.rocketCooldown = Math.max(0, p.runtime.rocketCooldown - dt);
+      p.flareCooldown = Math.max(0, p.flareCooldown - dt);
       if (p.runtime.shield > 0 && this.simTime >= p.shieldUntil) p.runtime.shield = 0;
       p.collisionCooldown = Math.max(0, p.collisionCooldown - dt);
       if (p.bot) {
@@ -388,6 +421,11 @@ export class LocalMatch {
           runtime: other.runtime,
         }));
         p.controls = p.bot.update(dt, p.runtime, aiPlanes, p.runtime.fireCooldown);
+        p.controls.flare = false;
+        if (p.runtime.flares > 0 && p.flareCooldown <= 0 && Math.random() < 0.035) {
+          const threatened = this.rockets.some((r) => r.targetId === p.runtime.id && Math.hypot(r.x - p.runtime.flight.x, r.y - p.runtime.flight.y, r.z - p.runtime.flight.z) < 110);
+          if (threatened) p.controls.flare = true;
+        }
       }
       const speedBefore = p.runtime.flight.speed;
       const from = tmp.set(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z).clone();
@@ -417,6 +455,7 @@ export class LocalMatch {
       if (p.runtime.alive) this.handleWeapons(p);
     }
     this.updateRockets(dt);
+    this.updateFlares(dt);
     this.updateBalloons();
     for (const p of this.planes) {
       if (!p.runtime.alive) continue;
@@ -531,6 +570,14 @@ export class LocalMatch {
       this.launchRocket(p);
       if (p === this.player) this.deps.audio.rocket();
     }
+    const flarePressed = p.controls.flare && !p.previousFlare;
+    p.previousFlare = p.controls.flare;
+    if (flarePressed && p.flareCooldown <= 0 && p.runtime.flares > 0 && p.runtime.alive) {
+      p.runtime.flares--;
+      p.flareCooldown = 1.6;
+      this.deployFlares(p);
+      if (p === this.player) this.deps.audio.flare();
+    }
   }
 
   private launchRocket(p: LocalPlane): void {
@@ -557,6 +604,8 @@ export class LocalMatch {
       vz: fwd.z * WORLD.rocketSpeed,
       life: 5,
       targetId: target?.runtime.id ?? null,
+      flare: null,
+      decoyed: false,
       mesh: group,
     };
     group.position.set(rocket.x, rocket.y, rocket.z);
@@ -584,11 +633,97 @@ export class LocalMatch {
     return best;
   }
 
+  private deployFlares(p: LocalPlane): void {
+    const f = p.runtime.flight;
+    q.set(f.qx, f.qy, f.qz, f.qw);
+    fwd.set(0, 0, -1).applyQuaternion(q);
+    const right = new Vector3(1, 0, 0).applyQuaternion(q);
+    const startIndex = this.flares.length;
+    const base = new Vector3(f.x - fwd.x * 4.4, f.y - 1.8, f.z - fwd.z * 4.4);
+    for (let i = 0; i < 3; i++) {
+      const side = i - 1;
+      const x = base.x + right.x * side * 2.1;
+      const y = base.y + (i === 1 ? 0.3 : 0);
+      const z = base.z + right.z * side * 2.1;
+      const mesh = new Mesh(flareGeo, flareMat);
+      mesh.position.set(x, y, z);
+      this.deps.scene.add(mesh);
+      this.flares.push({
+        id: this.nextFlareId++,
+        ownerId: p.runtime.id,
+        x, y, z,
+        vx: -fwd.x * 3 + right.x * side * 6 + (Math.random() - 0.5) * 1.5,
+        vy: -2.4 + Math.random() * 1.2,
+        vz: -fwd.z * 3 + right.z * side * 6 + (Math.random() - 0.5) * 1.5,
+        life: WORLD.flareLifetime,
+        mesh,
+      });
+    }
+    this.deps.effects.flareBurst(base);
+    for (const rocket of this.rockets) {
+      if (rocket.targetId !== p.runtime.id) continue;
+      const dist = Math.hypot(rocket.x - f.x, rocket.y - f.y, rocket.z - f.z);
+      if (dist > WORLD.flareRadius) continue;
+      let best: FlareProjectile | null = null;
+      let bestDist = Infinity;
+      for (let i = startIndex; i < this.flares.length; i++) {
+        const flare = this.flares[i];
+        const d = (rocket.x - flare.x) ** 2 + (rocket.y - flare.y) ** 2 + (rocket.z - flare.z) ** 2;
+        if (d < bestDist) {
+          bestDist = d;
+          best = flare;
+        }
+      }
+      if (best) {
+        rocket.flare = best;
+        rocket.targetId = null;
+        rocket.decoyed = true;
+        rocket.life = Math.min(rocket.life, 2.4);
+      }
+    }
+  }
+
+  private updateFlares(dt: number): void {
+    for (let i = this.flares.length - 1; i >= 0; i--) {
+      const flare = this.flares[i];
+      flare.life -= dt;
+      if (flare.life <= 0) {
+        this.deps.scene.remove(flare.mesh);
+        this.flares.splice(i, 1);
+        continue;
+      }
+      const drag = Math.pow(0.86, dt * 60);
+      flare.vx *= drag;
+      flare.vz *= drag;
+      flare.vy = flare.vy * drag - 5 * dt;
+      flare.x += flare.vx * dt;
+      flare.y += flare.vy * dt;
+      flare.z += flare.vz * dt;
+      flare.mesh.position.set(flare.x, flare.y, flare.z);
+      const dir = new Vector3(flare.vx, flare.vy, flare.vz).normalize();
+      if (Math.random() < 0.7) this.deps.effects.flareTrail(new Vector3(flare.x, flare.y, flare.z), dir);
+    }
+  }
+
   private updateRockets(dt: number): void {
     for (let i = this.rockets.length - 1; i >= 0; i--) {
       const r = this.rockets[i];
       r.life -= dt;
-      if (r.targetId) {
+      if (r.flare) {
+        if (r.flare.life > 0) {
+          tmp.set(r.flare.x - r.x, r.flare.y - r.y, r.flare.z - r.z).normalize();
+          const speed = Math.hypot(r.vx, r.vy, r.vz);
+          const v = new Vector3(r.vx / speed, r.vy / speed, r.vz / speed);
+          const turn = Math.min(1, dt * 1.8);
+          v.lerp(tmp, turn).normalize();
+          r.vx = v.x * speed;
+          r.vy = v.y * speed;
+          r.vz = v.z * speed;
+        } else {
+          r.flare = null;
+          r.life = Math.min(r.life, 0.3);
+        }
+      } else if (r.targetId) {
         const target = this.planes.find((p) => p.runtime.id === r.targetId && p.runtime.alive);
         if (target) {
           tmp.set(target.runtime.flight.x - r.x, target.runtime.flight.y - r.y, target.runtime.flight.z - r.z).normalize();
@@ -609,6 +744,10 @@ export class LocalMatch {
       const sweep = this.deps.physics.planeSweep(oldPos, newPos, 0.25);
       let explodeAt: Vector3 | null = null;
       if (sweep.hit) explodeAt = sweep.position.clone();
+      if (!explodeAt && r.flare) {
+        tmp.set(r.flare.x, r.flare.y, r.flare.z);
+        if (distancePointSegmentSq(tmp, oldPos, newPos) < 2.2 * 2.2) explodeAt = newPos.clone();
+      }
       if (!explodeAt) {
         for (const balloon of this.balloons) {
           if (!balloon.alive) continue;
@@ -656,6 +795,7 @@ export class LocalMatch {
       if (!p.runtime.alive) continue;
       if (this.config.mode === "tdm" && p.runtime.team === r.team) continue;
       if (p.runtime.id === r.ownerId) continue;
+      if (r.decoyed) continue;
       tmp.set(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z);
       const d = tmp.distanceTo(at);
       if (d < WORLD.rocketRadius) {
@@ -871,6 +1011,9 @@ export class LocalMatch {
     p.shieldUntil = 0;
     p.runtime.ammo = p.def.gunAmmo;
     p.runtime.rockets = p.def.rocketAmmo;
+    p.runtime.flares = p.def.flareAmmo;
+    p.flareCooldown = 0;
+    p.previousFlare = false;
     p.cadenceUntil = 0;
     p.streak = 0;
     p.multiKill = 0;
@@ -1021,6 +1164,7 @@ export class LocalMatch {
       throttle: p.flight.throttle,
       ammo: p.ammo,
       rockets: p.rockets,
+      flares: p.flares,
       cameraMode: this.cameraMode,
       alive: p.alive,
       respawnIn: Math.max(0, p.respawnAt - this.simTime),
@@ -1033,6 +1177,7 @@ export class LocalMatch {
       boosting: this.player.controls.boost && p.alive,
       invulnerable: this.simTime < p.invulnerableUntil,
       stalled: p.alive && p.flight.speed < this.player.def.minSpeed * 0.82,
+      missileWarning: p.alive && this.rockets.some((r) => r.targetId === p.id),
       target: hudTarget,
       radar,
       playerHeading: yaw * 180 / Math.PI,
@@ -1121,6 +1266,8 @@ export class LocalMatch {
     }
     for (const r of this.rockets) this.deps.scene.remove(r.mesh);
     this.rockets = [];
+    for (const flare of this.flares) this.deps.scene.remove(flare.mesh);
+    this.flares = [];
     this.balloonField.dispose();
     this.deps.effects.reset(this.deps.physics);
     this.planes = [];

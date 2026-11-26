@@ -24,6 +24,7 @@ export interface AircraftDef {
   gunDamage: number;
   gunAmmo: number;
   rocketAmmo: number;
+  flareAmmo: number;
   stats: { speed: number; agility: number; armor: number };
 }
 
@@ -48,6 +49,7 @@ export const AIRCRAFT: AircraftDef[] = [
     gunDamage: 5.4,
     gunAmmo: 320,
     rocketAmmo: 4,
+    flareAmmo: 2,
     stats: { speed: 3, agility: 3, armor: 4 },
   },
   {
@@ -70,6 +72,7 @@ export const AIRCRAFT: AircraftDef[] = [
     gunDamage: 5,
     gunAmmo: 340,
     rocketAmmo: 4,
+    flareAmmo: 3,
     stats: { speed: 5, agility: 5, armor: 2 },
   },
   {
@@ -92,6 +95,7 @@ export const AIRCRAFT: AircraftDef[] = [
     gunDamage: 5.2,
     gunAmmo: 330,
     rocketAmmo: 4,
+    flareAmmo: 2,
     stats: { speed: 5, agility: 4, armor: 3 },
   },
   {
@@ -114,6 +118,7 @@ export const AIRCRAFT: AircraftDef[] = [
     gunDamage: 5.7,
     gunAmmo: 400,
     rocketAmmo: 6,
+    flareAmmo: 3,
     stats: { speed: 2, agility: 2, armor: 5 },
   },
 ];
@@ -154,6 +159,9 @@ export const WORLD = {
   rocketSpeed: 88,
   rocketDamage: 62,
   rocketRadius: 8,
+  flareAmmo: 2,
+  flareLifetime: 2.4,
+  flareRadius: 90,
   respawnSeconds: 4,
   matchSeconds: 7 * 60 + 24,
   maxPlayers: 24,
