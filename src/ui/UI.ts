@@ -551,6 +551,8 @@ export class UIManager {
     el("throttle-value").textContent = String(Math.round(data.throttle * 100));
     el("ammo-value").textContent = String(data.ammo);
     el("rocket-value").textContent = `×${data.rockets}`;
+    el("flare-value").textContent = `×${data.flares}`;
+    el("flare-row").classList.toggle("active", data.flares > 0);
     el("speed-value").textContent = String(Math.max(0, Math.round(data.speed)));
     el("alt-value").textContent = String(Math.max(0, Math.round(data.altitude)));
     const speedAngle = -120 + Math.max(0, Math.min(1, data.speed / 320)) * 240;
@@ -565,13 +567,14 @@ export class UIManager {
     const condition = data.maxHealth > 0 ? data.health / data.maxHealth : 0;
     let warning = "";
     if (data.alive) {
-      if (condition < 0.22) warning = "HULL CRITICAL · BREAK OFF";
+      if (data.missileWarning) warning = "MISSILE LOCK · F FLARES · BREAK TURN";
+      else if (condition < 0.22) warning = "HULL CRITICAL · BREAK OFF";
       else if (data.stalled) warning = "STALL · NOSE DOWN · FULL THROTTLE";
       else if (condition < 0.5) warning = "AIRFRAME DAMAGED · HANDLING REDUCED";
     }
     const warningNode = el("hud-warning");
     warningNode.classList.toggle("hidden", !warning);
-    warningNode.classList.toggle("danger", condition < 0.22 || data.stalled);
+    warningNode.classList.toggle("danger", data.missileWarning || condition < 0.22 || data.stalled);
     if (warning) el("hud-warning-text").textContent = warning;
     const crosshair = el("crosshair");
     crosshair.classList.toggle("hidden", !data.alive);
@@ -795,7 +798,7 @@ export class UIManager {
       ${stats("AGILITY", def.stats.agility)}
       ${stats("ARMOUR", def.stats.armor)}
       <div class="stat-line"><span class="stat-name">HULL</span><span class="stat-value">${def.maxHealth}</span></div>
-      <div class="stat-line"><span class="stat-name">GUNS / ROCKETS</span><span class="stat-value">${def.gunAmmo} / ${def.rocketAmmo}</span></div>
+      <div class="stat-line"><span class="stat-name">GUNS / RKT / FLR</span><span class="stat-value">${def.gunAmmo} / ${def.rocketAmmo} / ${def.flareAmmo}</span></div>
       <p class="stat-desc">${def.blurb}</p>`;
     document.querySelectorAll<HTMLElement>("[data-aircraft]").forEach((card) => {
       if (card.classList.contains("aircraft-card")) card.classList.toggle("selected", card.dataset.aircraft === this.aircraftId);

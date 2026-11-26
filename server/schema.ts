@@ -25,6 +25,7 @@ export class PlayerState extends Schema {
   @type("number") cadenceSeconds = 0;
   @type("number") ammo = 320;
   @type("number") rockets = 4;
+  @type("number") flares = 2;
   @type("number") kills = 0;
   @type("number") deaths = 0;
   @type("number") streak = 0;

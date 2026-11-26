@@ -20,12 +20,14 @@ export class InputManager {
   private wheelDelta = 0;
   private throttle = DEFAULT_THROTTLE;
   private actions: Action[] = [];
+  private flarePulse = false;
   private touch = {
     active: false,
     pitch: 0,
     roll: 0,
     fire: false,
     rocket: false,
+    flare: false,
     boost: false,
     throttle: DEFAULT_THROTTLE * 100,
   };
@@ -62,6 +64,7 @@ export class InputManager {
       if (["Tab", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
+      if (e.code === "KeyF" && this.enabled) this.flarePulse = true;
       if (e.code === "KeyV") this.actions.push("camera");
       if (e.code === "Escape") this.actions.push("pause");
       if (e.code === "KeyM") this.actions.push("mute");
@@ -196,6 +199,7 @@ export class InputManager {
     };
     hold("touch-fire", (d) => { this.touch.fire = d; });
     hold("touch-rocket", (d) => { this.touch.rocket = d; });
+    hold("touch-flare", (d) => { this.touch.flare = d; if (d) this.flarePulse = true; });
     hold("touch-boost", (d) => { this.touch.boost = d; });
     const camera = document.getElementById("touch-camera");
     camera?.addEventListener("pointerdown", (event) => {
@@ -292,6 +296,8 @@ export class InputManager {
     this.rocketMouse = false;
     this.touch.fire = false;
     this.touch.rocket = false;
+    this.touch.flare = false;
+    this.flarePulse = false;
     this.touch.boost = false;
     this.touch.pitch = 0;
     this.touch.roll = 0;
@@ -306,7 +312,7 @@ export class InputManager {
 
   getControls(dt: number): Controls {
     const k = this.keys;
-    if (!this.enabled) return { pitch: 0, roll: 0, yaw: 0, throttle: this.throttle, boost: false, fire: false, rocket: false, autoLevelRoll: true, autoLevelPitch: true };
+    if (!this.enabled) return { pitch: 0, roll: 0, yaw: 0, throttle: this.throttle, boost: false, fire: false, rocket: false, flare: false, autoLevelRoll: true, autoLevelPitch: true };
     const mouseDecay = Math.exp(-dt * 3.4);
     this.mouseSteerX *= mouseDecay;
     this.mouseSteerY *= mouseDecay;
@@ -341,6 +347,8 @@ export class InputManager {
       k.has("KeyW") || k.has("ArrowUp") || k.has("KeyS") || k.has("ArrowDown") ||
       (this.touch.active && Math.abs(this.touch.pitch) > 0.06) ||
       (this.pointerLocked && Math.abs(this.mouseSteerY) > 0.02);
+    const flare = this.flarePulse || k.has("KeyF") || (this.touch.active && this.touch.flare);
+    this.flarePulse = false;
     return {
       pitch,
       roll,
@@ -349,6 +357,7 @@ export class InputManager {
       boost: k.has("ShiftLeft") || k.has("ShiftRight") || (this.touch.active && this.touch.boost),
       fire: k.has("Space") || this.fireMouse || (this.touch.active && this.touch.fire),
       rocket: k.has("KeyR") || this.rocketMouse || (this.touch.active && this.touch.rocket),
+      flare,
       autoLevelRoll: !rollIntent,
       autoLevelPitch: !pitchIntent,
     };

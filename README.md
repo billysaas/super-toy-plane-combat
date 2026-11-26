@@ -10,14 +10,14 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 
 - **One continuous toy world:** a large multi-room house with a double-height living room, kitchen, bedrooms, hallways, stairs, skylight, collidable furniture, garden, patio, trees, hedges, fountain and a fortified toy-box boundary.
 - **Arcade flight:** bank-to-turn coordination, boost, throttle, collision bounces, damage and respawning. Climbing bleeds energy and diving recovers it; heavy damage cuts top speed and turn authority, and a stalled wing drops the nose until airflow returns.
-- **Combat:** twin machine-gun tracers, homing rockets, splash damage, explosions, debris physics, smoke trails, hit markers and kill feed. Kill streaks award score, rapid fire, armour, repairs and a full rocket rack; multi-kills pop callouts.
+- **Combat:** twin machine-gun tracers, homing rockets, flare countermeasures, splash damage, explosions, debris physics, smoke trails, hit markers and kill feed. Kill streaks award score, rapid fire, armour, repairs and a full rocket rack; multi-kills pop callouts.
 - **Destructible balloons:** ten drifting hot-air balloons can be shot down to release floating armour, hull repair, rapid-fire or energy-shield pickups. Fly through a pickup to collect it.
 - **Four aircraft:** Meadowhawk, Blue Jay, Crimson Fox and Golden Wasp, each with its own speed, agility, armour, ammo and handling.
 - **Two cameras:** chase camera and first-person cockpit view with cockpit framing.
 - **Solo play:** team deathmatch or free-for-all against 1–11 AI pilots with Rookie, Pilot and Ace difficulty.
 - **Online play:** Colyseus authoritative team deathmatch and free-for-all rooms for up to 24 players, public rooms, private rooms joined by code, matchmaking lobby, ready checks, teams, scoreboard, kill feed and radio chat.
 - **Desktop controls:** keyboard + mouse, pointer lock steering, wheel throttle.
-- **Mobile controls:** portrait- and landscape-ready virtual joystick, throttle slider, fire, boost, rocket and camera buttons, plus chat.
+- **Mobile controls:** portrait- and landscape-ready virtual joystick, throttle slider, fire, boost, rocket, flare and camera buttons, plus chat.
 - **Pixel HUD:** vector/pixel fonts, team scores, match timer, radar, target lock, speed and altitude gauges, hull/boost/throttle bars, ammo counters and responsive touch layout.
 - **Performance controls:** low / medium / high graphics quality, DPR scaling, optional shadows, reduced point lights on low, particle caps, pooled effects and low-poly geometry.
 - **Procedural audio:** engine, guns, rockets, impacts and explosions synthesized with Web Audio. No sampled audio files.
@@ -53,6 +53,7 @@ Open <http://localhost:2567>.
 | Boost | `Shift` | BOOST button |
 | Machine guns | `Space` or left mouse | FIRE button |
 | Rockets | `R` or right mouse | RKT button |
+| Flares | `F` | FLR button |
 | Camera | `V` | VIEW button |
 | Scoreboard | hold `Tab` | — |
 | Chat | `T` | CHAT button |

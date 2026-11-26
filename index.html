@@ -154,7 +154,7 @@
           <div class="key-row"><span class="key wide">MOUSE</span><span>Steer (click to lock)</span></div>
           <div class="key-row"><span class="key">SHIFT</span><span>Boost</span></div>
           <div class="key-row"><span class="key">SPACE</span><span>Machine guns</span></div>
-          <div class="key-row"><span class="key">R</span><span>Rockets</span></div>
+          <div class="key-row"><span class="key">R</span><span>Rockets</span><span><b>F</b> Flares</span></div>
           <div class="key-row"><span class="key">Z</span><span class="key">X</span><span>Throttle</span></div>
           <div class="key-row"><span class="key">V</span><span>Camera</span><span><b>TAB</b> Scoreboard</span></div>
           <div class="key-row"><span class="key">T</span><span>Chat</span><span><b>ESC</b> Pause</span></div>
@@ -175,7 +175,7 @@
           <div class="panel-title">02 — TURN FIGHT</div>
           <p>Pitch and roll with <b>WASD</b> or the mouse. Bank hard, then add <b>Q / E</b> rudder to tighten the turn. The yaw rate is lower than the roll rate — use both.</p>
           <div class="panel-title">03 — SHOOT</div>
-          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. Rockets track whatever you have locked in your sights. Chain kills without dying: three in a row refills rapid fire, five adds armour, seven repairs your hull, and ten reloads your rockets.</p>
+          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. Rockets track whatever you have locked in your sights; when you hear the lock warning, pop <b>F</b> flares and break. Chain kills without dying: three in a row refills rapid fire, five adds armour, seven repairs your hull, and ten reloads your rockets.</p>
           <div class="panel-title">04 — SURVIVE</div>
           <p>Health regenerates only when you respawn. Watch the smoke trail and break off when your wings are red. Fly through windows, under the dining table, and around the garden to lose a tail. Shoot down balloons and fly through their drops — the cyan shield soaks damage for ten seconds.</p>
         </div>
@@ -191,7 +191,7 @@
             <span class="map-label patio">PATIO</span>
           </div>
           <div class="panel-title">TOUCH PILOTS</div>
-          <p>Use the virtual stick with your left thumb. Throttle, fire, boost, rockets and camera are on the right. Play in portrait or landscape. Landscape gives a wider view; headphones recommended.</p>
+          <p>Use the virtual stick with your left thumb. Throttle, fire, boost, rockets, flares and camera are on the right. Play in portrait or landscape. Landscape gives a wider view; headphones recommended.</p>
           <div class="warning-strip">COLLISIONS HURT. THE CHANDELIER DOES NOT MOVE FOR YOU.</div>
         </div>
       </div>
@@ -342,6 +342,7 @@
           <div class="weapon-row"><span>GUNS</span><b id="ammo-value">320</b></div>
           <div class="weapon-row"><span>ROCKETS</span><b id="rocket-value">×4</b></div>
           <div id="cadence-row" class="weapon-row"><span>RAPID</span><b id="cadence-value">--</b></div>
+          <div id="flare-row" class="weapon-row flares"><span>FLARES</span><b id="flare-value">×2</b></div>
           <div id="shield-row" class="weapon-row shield"><span>SHIELD</span><b id="shield-value">--</b></div>
           <div id="streak-row" class="weapon-row streak"><span>STREAK</span><b id="streak-value">0</b></div>
           <div class="mini-footer"><span id="camera-label">CHASE CAM</span><span id="score-kd">0 / 0</span></div>
@@ -400,7 +401,10 @@
 
     <div id="touch-ui" class="touch-ui hidden">
       <div id="touch-stick-base" class="touch-stick-base"><div class="touch-stick-ring"></div><div id="touch-stick-knob" class="touch-stick-knob"></div><span class="touch-label">STICK</span></div>
-      <div class="touch-throttle-wrap"><span>THROTTLE</span><input id="touch-throttle" type="range" min="15" max="100" value="50" /><b id="touch-throttle-label">50</b></div>
+      <div class="touch-throttle-wrap">
+        <div class="touch-throttle-head"><span>THROTTLE</span><button id="touch-flare" class="touch-flare-btn" type="button">FLR</button></div>
+        <input id="touch-throttle" type="range" min="15" max="100" value="50" /><b id="touch-throttle-label">50</b>
+      </div>
       <div class="touch-actions">
         <button id="touch-camera" class="touch-btn touch-small">VIEW</button>
         <button id="touch-rocket" class="touch-btn touch-small touch-rocket">RKT</button>
