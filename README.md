@@ -18,7 +18,7 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 - **Post-match debrief:** accuracy, damage, rocket hits, balloons popped, best streak and longest life, plus earned medals such as ACE, UNTOUCHED, BALLOON BUSTER and SHARPSHOOTER.
 - **Solo play:** team deathmatch, free-for-all or three-life survival against 1–11 AI pilots with Rookie, Pilot and Ace difficulty. Survival throws escalating reinforcement waves at you until the last toy pilot is out of the box.
 - **Online play:** Colyseus authoritative team deathmatch and free-for-all rooms for up to 24 players, public rooms, private rooms joined by code, matchmaking lobby, ready checks, teams, scoreboard, kill feed and radio chat.
-- **Desktop controls:** keyboard + mouse, pointer lock steering, wheel throttle.
+- **Desktop controls:** keyboard + mouse, pointer lock steering, wheel throttle, plus standard gamepad support.
 - **Mobile controls:** portrait- and landscape-ready virtual joystick, throttle slider, fire, boost, rocket, flare and camera buttons, plus chat.
 - **Pixel HUD:** vector/pixel fonts, team scores, match timer, radar with hostiles, balloons and pickups, target lock, speed and altitude gauges, hull/boost/throttle bars, ammo counters and responsive touch layout.
 - **Performance controls:** low / medium / high graphics quality, DPR scaling, optional shadows, reduced point lights on low, particle caps, pooled effects and low-poly geometry.
@@ -61,6 +61,8 @@ Open <http://localhost:2567>.
 | Chat | `T` | CHAT button |
 | Pause | `Esc` | HUD pause button |
 | Mute | `M` | Settings |
+
+Gamepad: left stick pitch/roll, right stick yaw and throttle, `A`/`RT` fire, `B` rockets, `X` flares, `LT`/`LB` boost, `Y` camera, D-pad throttle, `Start` pause/resume.
 
 Click the canvas to capture the mouse for pointer-locked steering.
 

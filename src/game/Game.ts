@@ -675,6 +675,7 @@ export class Game {
   }
 
   private updateActions(): void {
+    this.input.pollGlobalActions();
     const actions = this.input.consumeActions();
     for (const action of actions) {
       if (action === "pause") {

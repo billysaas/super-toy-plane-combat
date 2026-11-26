@@ -13,7 +13,7 @@ Super Toy Plane Combat is a complete browser 3D arcade dogfighting game set in a
 - Current branch: `main`.
 - Solo modes: team deathmatch, free-for-all and three-life survival against 1–11 AI pilots.
 - Online modes: team deathmatch and free-for-all, public/private rooms, lobby, ready checks, up to 24 configured players.
-- Platforms: desktop keyboard/mouse, touch landscape and touch portrait.
+- Platforms: desktop keyboard/mouse and gamepad, touch landscape and touch portrait.
 - Match duration: 7:24 by default (`WORLD.matchSeconds` / `MATCH_SECONDS`).
 - Code license: MIT. Vendored Polyfork models: CC BY 4.0. Fonts: OFL. See `CREDITS.md`.
 
