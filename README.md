@@ -15,7 +15,7 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 - **Four aircraft:** Meadowhawk, Blue Jay, Crimson Fox and Golden Wasp, each with its own speed, agility, armour, ammo and handling.
 - **Two cameras:** chase camera and first-person cockpit view with cockpit framing.
 - **Post-match debrief:** accuracy, damage, rocket hits, balloons popped, best streak and longest life, plus earned medals such as ACE, UNTOUCHED, BALLOON BUSTER and SHARPSHOOTER.
-- **Solo play:** team deathmatch or free-for-all against 1–11 AI pilots with Rookie, Pilot and Ace difficulty.
+- **Solo play:** team deathmatch, free-for-all or three-life survival against 1–11 AI pilots with Rookie, Pilot and Ace difficulty. Survival throws escalating reinforcement waves at you until the last toy pilot is out of the box.
 - **Online play:** Colyseus authoritative team deathmatch and free-for-all rooms for up to 24 players, public rooms, private rooms joined by code, matchmaking lobby, ready checks, teams, scoreboard, kill feed and radio chat.
 - **Desktop controls:** keyboard + mouse, pointer lock steering, wheel throttle.
 - **Mobile controls:** portrait- and landscape-ready virtual joystick, throttle slider, fire, boost, rocket, flare and camera buttons, plus chat.
@@ -68,6 +68,8 @@ Click the canvas to capture the mouse for pointer-locked steering.
 ### Solo
 
 Choose team deathmatch or free-for-all, enemy count and difficulty. AI pilots have distinct personalities — aggressor, sniper, trickster and energy fighter — and they select targets, lead their shots, fire guns and rockets, break hard when hit, evade incoming missiles, call out kills on the radio, use look-ahead probes to steer around walls and furniture, recover from collisions and respawn. The player starts inside the living room; hostile fighters scramble from all around the map.
+
+**Survival** gives you three lives and starts with a small bandit patrol. Every 30 seconds a new wave adds reinforcements, and from wave six the newcomers fly at Ace difficulty. Waves keep coming until your last life is gone. The debrief records the wave reached, time survived and score.
 
 ### Multiplayer
 

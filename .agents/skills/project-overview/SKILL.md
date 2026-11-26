@@ -11,7 +11,7 @@ Super Toy Plane Combat is a complete browser 3D arcade dogfighting game set in a
 - Stack: Three.js, TypeScript, Vite, Rapier, Node.js, Colyseus and Express.
 - Repository: <https://github.com/billysaas/super-toy-plane-combat>.
 - Current branch: `main`.
-- Solo modes: team deathmatch and free-for-all against 1–11 AI pilots.
+- Solo modes: team deathmatch, free-for-all and three-life survival against 1–11 AI pilots.
 - Online modes: team deathmatch and free-for-all, public/private rooms, lobby, ready checks, up to 24 configured players.
 - Platforms: desktop keyboard/mouse, touch landscape and touch portrait.
 - Match duration: 7:24 by default (`WORLD.matchSeconds` / `MATCH_SECONDS`).

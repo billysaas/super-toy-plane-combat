@@ -537,7 +537,7 @@ export class Game {
     );
     this.match = match;
     if (!this.input.usesTouch) this.input.requestPointerLock();
-    this.ui.showToast(config.mode === "tdm" ? "TEAM DEATHMATCH" : "FREE FOR ALL", 1.8);
+    this.ui.showToast(config.mode === "survival" ? "TOY BOX SURVIVAL" : config.mode === "tdm" ? "TEAM DEATHMATCH" : "FREE FOR ALL", 1.8);
     this.audio.setCombatMusic(true);
     this.audio.setCombatIntensity(0.62);
     this.combatIntensitySent = 0.62;

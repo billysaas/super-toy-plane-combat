@@ -9,6 +9,7 @@ import {
   type GameMode,
   type Settings,
   type SoloConfig,
+  type SoloMode,
   type Team,
 } from "../../shared/config";
 import type { HudData, MatchResult, ScoreRow } from "../game/LocalMatch";
@@ -106,7 +107,7 @@ export class UIManager {
   settings: Settings = { ...DEFAULT_SETTINGS };
   aircraftId: string = DEFAULT_SOLO.aircraftId;
   currentScreen: ScreenName = "menu";
-  private soloMode: GameMode = "tdm";
+  private soloMode: SoloMode = "tdm";
   private soloDifficulty: Difficulty = "pilot";
   private soloEnemies = 5;
   private lobby?: LobbyStateView;
@@ -300,16 +301,24 @@ export class UIManager {
     this.setMusicToggleVisible(false);
     const overlay = el("results-screen");
     overlay.classList.remove("hidden");
-    el("results-kicker").textContent = result.draw ? "MISSION ENDED" : result.win ? "MISSION COMPLETE" : "MISSION FAILED";
-    el("results-title").textContent = result.draw ? "DRAW" : result.win ? "VICTORY" : "DEFEAT";
-    el("results-title").style.color = result.draw ? "var(--yellow)" : result.win ? "var(--cream)" : "#ff917d";
-    const scoreline = el("results-scoreline");
-    if (result.mode === "tdm") {
-      scoreline.innerHTML = `<span class="blue">RAF ${result.scoreRAF}</span><span class="dash">—</span><span class="red">${result.scoreAXIS} AXIS</span>`;
+    if (result.survival) {
+      el("results-kicker").textContent = "SURVIVAL RUN ENDED";
+      el("results-title").textContent = `WAVE ${result.survival.wave}`;
+      el("results-title").style.color = "var(--yellow)";
+      el("results-scoreline").innerHTML = `<span class="blue">SURVIVED ${formatTime(result.survival.time)}</span><span class="dash">·</span><span class="red">${result.survival.score} PTS</span>`;
+      el("results-stats").innerHTML = `<span>KILLS <b>${result.playerKills}</b></span><span>LOSSES <b>${result.playerDeaths}</b></span><span>LIVES LEFT <b>${result.survival.lives}</b></span>`;
     } else {
-      scoreline.innerHTML = `<span class="blue">${result.playerKills} KILLS</span><span class="dash">·</span><span class="red">${result.playerDeaths} LOSSES</span>`;
+      el("results-kicker").textContent = result.draw ? "MISSION ENDED" : result.win ? "MISSION COMPLETE" : "MISSION FAILED";
+      el("results-title").textContent = result.draw ? "DRAW" : result.win ? "VICTORY" : "DEFEAT";
+      el("results-title").style.color = result.draw ? "var(--yellow)" : result.win ? "var(--cream)" : "#ff917d";
+      const scoreline = el("results-scoreline");
+      if (result.mode === "tdm") {
+        scoreline.innerHTML = `<span class="blue">RAF ${result.scoreRAF}</span><span class="dash">—</span><span class="red">${result.scoreAXIS} AXIS</span>`;
+      } else {
+        scoreline.innerHTML = `<span class="blue">${result.playerKills} KILLS</span><span class="dash">·</span><span class="red">${result.playerDeaths} LOSSES</span>`;
+      }
+      el("results-stats").innerHTML = `<span>KILLS <b>${result.playerKills}</b></span><span>LOSSES <b>${result.playerDeaths}</b></span><span>BANDITS <b>${Math.max(0, result.rows.length - 1)}</b></span>`;
     }
-    el("results-stats").innerHTML = `<span>KILLS <b>${result.playerKills}</b></span><span>LOSSES <b>${result.playerDeaths}</b></span><span>BANDITS <b>${Math.max(0, result.rows.length - 1)}</b></span>`;
     const medals = result.medals ?? [];
     el("results-medals").innerHTML = medals.length
       ? medals.map((medal) => `<span class="medal">${option(medal)}</span>`).join("")
@@ -327,7 +336,7 @@ export class UIManager {
     } else {
       el("results-breakdown").innerHTML = "";
     }
-    el("results-table").innerHTML = this.scoreTableHtml(result.rows, result.mode);
+    el("results-table").innerHTML = this.scoreTableHtml(result.rows, result.survival ? "tdm" : result.mode);
     this.hideHud();
   }
 
@@ -531,7 +540,14 @@ export class UIManager {
     const scoreAxis = el("score-axis");
     const blueBlock = document.querySelector<HTMLElement>(".score-block.blue");
     const redBlock = document.querySelector<HTMLElement>(".score-block.red");
-    if (data.mode === "ffa") {
+    if (data.survival) {
+      el("match-mode-label").textContent = "SURVIVAL";
+      if (blueBlock) blueBlock.firstElementChild!.textContent = "WAVE";
+      if (redBlock) redBlock.lastElementChild!.textContent = "LIVES";
+      scoreRaf.textContent = String(data.wave);
+      scoreAxis.textContent = String(data.lives);
+      el("hud-mode").textContent = "TOY BOX SURVIVAL";
+    } else if (data.mode === "ffa") {
       el("match-mode-label").textContent = "FREE FOR ALL";
       if (blueBlock) blueBlock.firstElementChild!.textContent = "KILLS";
       if (redBlock) redBlock.lastElementChild!.textContent = "LOSSES";
@@ -546,7 +562,7 @@ export class UIManager {
       scoreAxis.textContent = String(data.scoreAXIS);
       el("hud-mode").textContent = "TEAM DOGFIGHT";
     }
-    el("match-timer").textContent = formatTime(data.timeLeft);
+    el("match-timer").textContent = formatTime(data.survival ? data.survivalTime : data.timeLeft);
     el("hud-player-name").textContent = data.playerName.toUpperCase();
     el("hud-aircraft-name").textContent = data.aircraftName.toUpperCase();
     const healthRatio = data.maxHealth > 0 ? data.health / data.maxHealth : 0;
@@ -882,8 +898,15 @@ export class UIManager {
     el("solo-mode").addEventListener("click", (event) => {
       const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-mode]");
       if (!btn) return;
-      this.soloMode = btn.dataset.mode as GameMode;
+      this.soloMode = btn.dataset.mode as SoloMode;
       document.querySelectorAll<HTMLButtonElement>("#solo-mode button").forEach((b) => b.classList.toggle("selected", b === btn));
+      const range = el<HTMLInputElement>("enemy-count");
+      range.max = this.soloMode === "survival" ? "5" : "11";
+      el("enemy-range-mid").textContent = this.soloMode === "survival" ? "STARTING" : "SKY FULL";
+      el("enemy-range-max").textContent = range.max;
+      if (Number(range.value) > Number(range.max)) range.value = range.max;
+      this.soloEnemies = Number(range.value);
+      el("enemy-count-label").textContent = `${this.soloEnemies} ${this.soloMode === "survival" ? "STARTING BANDIT" : "BANDIT"}${this.soloEnemies === 1 ? "" : "S"}`;
     });
     el("difficulty-grid").addEventListener("click", (event) => {
       const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-difficulty]");
