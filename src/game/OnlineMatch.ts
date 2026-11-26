@@ -26,6 +26,7 @@ import {
 } from "../../shared/config";
 import { integrateFlight, reverseFlightDirection } from "../../shared/flight";
 import { BALLOON, BALLOON_SPAWNS, PICKUP_INFO, type PickupKind } from "../../shared/powerups";
+import { createMatchStats, medalsFor, type MatchStats } from "../../shared/medals";
 import type { CalloutTone } from "../../shared/streaks";
 import type { Controls, FlightState, InputPacket, PlaneRuntime } from "../../shared/types";
 import type { ActiveMatch } from "./ActiveMatch";
@@ -240,6 +241,9 @@ export class OnlineMatch implements ActiveMatch {
   private collisionCooldown = 0;
   private engineRunning = false;
   private missileWarned = false;
+  private stats = createMatchStats();
+  private clock = 0;
+  private lifeStartedAt = 0;
 
   constructor(deps: OnlineMatchDeps) {
     this.deps = deps;
@@ -389,6 +393,7 @@ export class OnlineMatch implements ActiveMatch {
   }
 
   update(dt: number): void {
+    this.clock += dt;
     this.state = getState(this.room);
     this.syncBalloons();
     this.balloonField.update(dt);
@@ -404,6 +409,7 @@ export class OnlineMatch implements ActiveMatch {
       this.updateVisuals(dt);
       return;
     }
+    this.stats.bestStreak = Math.max(this.stats.bestStreak, localSnap.streak);
     this.localSnapshot = localSnap;
     this.syncActors(snapshots, dt);
 
@@ -412,6 +418,7 @@ export class OnlineMatch implements ActiveMatch {
         this.lastAlive = true;
         this.local.runtime.flight = { ...localSnap.flight };
         this.local.view.group.visible = true;
+        this.lifeStartedAt = this.clock;
         this.deps.camera.snapTo(this.local.runtime);
         if (!this.engineRunning) {
           this.deps.audio.startEngine();
@@ -429,6 +436,7 @@ export class OnlineMatch implements ActiveMatch {
       this.deps.camera.setBuffet(0);
       if (this.lastAlive) {
         this.lastAlive = false;
+        this.stats.longestLife = Math.max(this.stats.longestLife, this.clock - this.lifeStartedAt);
         this.local.view.group.visible = false;
         this.deps.audio.stopEngine();
         this.engineRunning = false;
@@ -902,6 +910,10 @@ export class OnlineMatch implements ActiveMatch {
       win = rows[0]?.isPlayer ?? false;
     }
     this.ended = true;
+    const stats: MatchStats = { ...this.stats };
+    if (this.lastAlive) stats.longestLife = Math.max(stats.longestLife, this.clock - this.lifeStartedAt);
+    const playerKills = me?.kills ?? 0;
+    const playerDeaths = me?.deaths ?? 0;
     return {
       win,
       draw,
@@ -909,8 +921,10 @@ export class OnlineMatch implements ActiveMatch {
       scoreRAF: this.state.scoreRAF,
       scoreAXIS: this.state.scoreAXIS,
       rows,
-      playerKills: me?.kills ?? 0,
-      playerDeaths: me?.deaths ?? 0,
+      playerKills,
+      playerDeaths,
+      stats,
+      medals: medalsFor(stats, playerKills, playerDeaths),
     };
   }
 
@@ -922,12 +936,17 @@ export class OnlineMatch implements ActiveMatch {
       const color = payload.team === "RAF" ? 0x7cc4ff : 0xff7a5d;
       this.deps.effects.spawnTracer(from, to, color);
       this.deps.effects.muzzle(from, to.clone().sub(from).normalize());
-      if (payload.ownerId === this.sessionId) this.deps.audio.gun();
+      if (payload.ownerId === this.sessionId) {
+        this.stats.shotsFired++;
+        this.deps.audio.gun();
+      }
     } else if (event === "hit") {
       const pos = new Vector3(payload.x, payload.y, payload.z);
       const target = this.state.players.get(payload.targetId);
       this.deps.effects.hitSpark(pos, target ? TEAM_INFO[target.team].color : 0xffffff);
       if (payload.attackerId === this.sessionId) {
+        this.stats.shotsHit++;
+        this.stats.damageDealt += Number(payload.damage) || 0;
         this.hitFlash = 1;
         this.deps.audio.hit();
       }
@@ -941,7 +960,10 @@ export class OnlineMatch implements ActiveMatch {
       if (payload.id) this.removeRocketVisual(payload.id);
     } else if (event === "rocketSpawn") {
       this.spawnRocketVisual(payload);
-      if (payload.ownerId === this.sessionId) this.deps.audio.rocket();
+      if (payload.ownerId === this.sessionId) {
+        this.stats.rocketsFired++;
+        this.deps.audio.rocket();
+      }
     } else if (event === "impact") {
       const pos = new Vector3(payload.x, payload.y, payload.z);
       this.deps.effects.impact(pos, new Vector3(0, 1, 0));
@@ -975,9 +997,11 @@ export class OnlineMatch implements ActiveMatch {
       const dist = this.local ? pos.distanceTo(new Vector3(this.local.runtime.flight.x, this.local.runtime.flight.y, this.local.runtime.flight.z)) : 999;
       if (dist < 60) this.deps.camera.addShake(clamp(1 - dist / 60, 0.1, 0.5));
     } else if (event === "balloonHit") {
+      if (payload.byId === this.sessionId) this.stats.shotsHit++;
       const pos = new Vector3(payload.x, payload.y, payload.z);
       this.deps.effects.hitSpark(pos, 0xffcf8a);
     } else if (event === "balloonDown") {
+      if (payload.byId === this.sessionId) this.stats.balloonsPopped++;
       const pos = new Vector3(payload.x, payload.y, payload.z);
       this.deps.effects.explosion(pos, 0.9, 0xffc77a);
       this.deps.effects.spawnDebris(pos, this.deps.physics, 0.55, 0xd95b4a);

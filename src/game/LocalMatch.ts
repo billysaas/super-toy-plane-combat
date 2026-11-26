@@ -21,6 +21,7 @@ import { createFlightState, integrateFlight, respawnFlight, reverseFlightDirecti
 import { distancePointSegmentSq, raySphere } from "../../shared/collision";
 import { getSpawnForTeam } from "../../shared/worldLayout";
 import { MULTI_KILL_BONUS, MULTI_KILL_WINDOW, multiKillTitle, streakMilestone, type CalloutTone } from "../../shared/streaks";
+import { createMatchStats, medalsFor, type MatchStats } from "../../shared/medals";
 import { BALLOON, BALLOON_SPAWNS, PICKUP_INFO, pickupForBalloon, type PickupKind } from "../../shared/powerups";
 import type { Controls, KillEvent, PlaneRuntime } from "../../shared/types";
 import type { AssetStore } from "./AssetStore";
@@ -119,6 +120,8 @@ export interface MatchResult {
   rows: ScoreRow[];
   playerKills: number;
   playerDeaths: number;
+  stats: MatchStats;
+  medals: string[];
 }
 
 export interface LocalMatchCallbacks {
@@ -249,6 +252,8 @@ export class LocalMatch {
   private result: MatchResult | null = null;
   private missileWarned = false;
   private lastBotChat = 0;
+  private stats = createMatchStats();
+  private lifeStartedAt = 0;
 
   constructor(deps: LocalMatchDeps, config: SoloConfig = DEFAULT_SOLO) {
     this.deps = deps;
@@ -499,6 +504,7 @@ export class LocalMatch {
     const fire = p.controls.fire;
     if (fire && p.runtime.fireCooldown <= 0 && p.runtime.ammo > 0 && p.runtime.alive) {
       p.runtime.ammo--;
+      if (p === this.player) this.stats.shotsFired++;
       p.runtime.fireCooldown = p.cadenceUntil > this.simTime ? p.def.fireInterval * BALLOON.cadenceMultiplier : p.def.fireInterval;
       const f = p.runtime.flight;
       q.set(f.qx, f.qy, f.qz, f.qw);
@@ -550,6 +556,8 @@ export class LocalMatch {
         this.deps.effects.hitSpark(end, TEAM_INFO[hitPlane.runtime.team].color);
         this.damage(hitPlane, p.def.gunDamage, p.runtime.id, "machine guns");
         if (p === this.player) {
+          this.stats.shotsHit++;
+          this.stats.damageDealt += p.def.gunDamage;
           this.hitFlash = 1;
           this.deps.audio.hit();
           this.deps.callbacks.onHit();
@@ -559,6 +567,7 @@ export class LocalMatch {
         this.deps.effects.hitSpark(end, 0xffcf8a);
         this.damageBalloon(hitBalloon, p.def.gunDamage, p);
         if (p === this.player) {
+          this.stats.shotsHit++;
           this.hitFlash = 1;
           this.deps.audio.hit();
           this.deps.callbacks.onHit();
@@ -593,6 +602,7 @@ export class LocalMatch {
 
   private launchRocket(p: LocalPlane): void {
     const f = p.runtime.flight;
+    if (p === this.player) this.stats.rocketsFired++;
     q.set(f.qx, f.qy, f.qz, f.qw);
     fwd.set(0, 0, -1).applyQuaternion(q);
     const body = new Mesh(rocketGeo, rocketBodyMat);
@@ -802,6 +812,7 @@ export class LocalMatch {
     const dist = this.player.runtime.alive ? at.distanceTo(new Vector3(this.player.runtime.flight.x, this.player.runtime.flight.y, this.player.runtime.flight.z)) : 999;
     this.deps.audio.explosion(dist, true);
     if (dist < 60) this.deps.camera.addShake(clamp(1 - dist / 60, 0.2, 1));
+    let rocketHitPlayer = false;
     for (const p of this.planes) {
       if (!p.runtime.alive) continue;
       if (this.config.mode === "tdm" && p.runtime.team === r.team) continue;
@@ -812,12 +823,17 @@ export class LocalMatch {
       if (d < WORLD.rocketRadius) {
         const amount = WORLD.rocketDamage * clamp(1 - d / WORLD.rocketRadius, 0.18, 1);
         this.damage(p, amount, r.ownerId, "rockets");
+        rocketHitPlayer = true;
         this.deps.effects.hitSpark(tmp, TEAM_INFO[p.runtime.team].color);
         if (p === this.player) {
           this.damageFlash = 1;
           this.deps.camera.addShake(0.9);
         }
       }
+    }
+    if (r.ownerId === this.player.runtime.id && rocketHitPlayer) {
+      this.stats.rocketHits++;
+      this.stats.damageDealt += WORLD.rocketDamage;
     }
     const blastRadius = WORLD.rocketRadius + BALLOON.hitRadius;
     const owner = this.planes.find((p) => p.runtime.id === r.ownerId);
@@ -855,6 +871,7 @@ export class LocalMatch {
     this.deps.audio.explosion(dist, false);
     if (dist < 60) this.deps.camera.addShake(clamp(1 - dist / 60, 0.15, 0.8));
     if (attacker) attacker.runtime.score += BALLOON.scoreBonus;
+    if (attacker === this.player) this.stats.balloonsPopped++;
   }
 
   private updateBalloons(): void {
@@ -964,11 +981,15 @@ export class LocalMatch {
       if (killer === this.player) {
         this.killMarkers++;
         this.hitFlash = 1;
+        this.stats.bestStreak = Math.max(this.stats.bestStreak, killer.streak);
       }
     }
     victim.streak = 0;
     victim.multiKill = 0;
     victim.lastKillAt = -100;
+    if (victim === this.player) {
+      this.stats.longestLife = Math.max(this.stats.longestLife, this.simTime - this.lifeStartedAt);
+    }
     const event: KillEvent = {
       killer: killer?.runtime.name ?? "FURNITURE",
       victim: victim.runtime.name,
@@ -1052,6 +1073,7 @@ export class LocalMatch {
       this.deps.audio.startEngine();
       this.deps.callbacks.onSpawn();
       this.damageFlash = 0;
+      this.lifeStartedAt = this.simTime;
     }
   }
 
@@ -1254,6 +1276,10 @@ export class LocalMatch {
     }
     this.deps.audio.fanfare(win);
     this.disabled = true;
+    if (this.player.runtime.alive) {
+      this.stats.longestLife = Math.max(this.stats.longestLife, this.simTime - this.lifeStartedAt);
+    }
+    const stats: MatchStats = { ...this.stats };
     this.result = {
       win,
       draw,
@@ -1263,6 +1289,8 @@ export class LocalMatch {
       rows,
       playerKills: this.player.runtime.kills,
       playerDeaths: this.player.runtime.deaths,
+      stats,
+      medals: medalsFor(stats, this.player.runtime.kills, this.player.runtime.deaths),
     };
     this.deps.callbacks.onMatchEnd(this.result);
   }
