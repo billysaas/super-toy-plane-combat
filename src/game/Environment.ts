@@ -1491,7 +1491,6 @@ export class Environment {
     });
     const pools: Array<{ x: number; y: number; z: number; w: number; h: number; rot: number }> = [
       { x: -23, y: 0.385, z: 1, w: 25, h: 13, rot: 0.3 },
-      { x: -34, y: 0.385, z: 26, w: 12, h: 8, rot: -0.6 },
       { x: 22, y: 0.385, z: 31, w: 16, h: 9, rot: 0.9 },
       { x: 18, y: 0.045, z: 49, w: 22, h: 12, rot: -0.3 },
     ];
