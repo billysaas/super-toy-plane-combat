@@ -72,7 +72,7 @@ Click the canvas to capture the mouse for pointer-locked steering.
 
 ### Solo
 
-Choose team deathmatch or free-for-all, enemy count and difficulty. AI pilots have distinct personalities — aggressor, sniper, trickster and energy fighter — and they select targets, lead their shots, fire guns and rockets, break hard when hit, evade incoming missiles, call out kills on the radio, use look-ahead probes to steer around walls and furniture, recover from collisions and respawn. The player starts inside the living room; hostile fighters scramble from all around the map.
+Choose team deathmatch, free-for-all or three-life survival, enemy count and difficulty. AI pilots have distinct personalities — aggressor, sniper, trickster and energy fighter — and they select targets, lead their shots, fire guns and rockets, break hard when hit, evade incoming missiles, call out kills on the radio, use look-ahead probes to steer around walls and furniture, recover from collisions and respawn. The player starts inside the living room; hostile fighters scramble from all around the map.
 
 **Survival** gives you three lives and starts with a small bandit patrol. Every 30 seconds a new wave adds reinforcements, and from wave six the newcomers fly at Ace difficulty. Waves keep coming until your last life is gone. The debrief records the wave reached, time survived and score.
 

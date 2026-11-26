@@ -1482,7 +1482,7 @@ export class Environment {
     const mat = new MeshBasicMaterial({
       map: tex,
       transparent: true,
-      opacity: 0.075,
+      opacity: 0.045,
       blending: AdditiveBlending,
       depthWrite: false,
       polygonOffset: true,
