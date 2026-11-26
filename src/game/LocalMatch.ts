@@ -50,6 +50,14 @@ export interface RadarBlip {
   isTarget: boolean;
 }
 
+export interface RadarObjective {
+  x: number;
+  y: number;
+  altitude: number;
+  alive: boolean;
+  pickup: PickupKind | null;
+}
+
 export interface HudData {
   mode: GameMode;
   timeLeft: number;
@@ -85,6 +93,7 @@ export interface HudData {
   missileWarning: boolean;
   target: HudTarget | null;
   radar: RadarBlip[];
+  objectives: RadarObjective[];
   playerHeading: number;
   hitFlash: number;
   damageFlash: number;
@@ -1144,8 +1153,19 @@ export class LocalMatch {
   getHud(): HudData {
     const p = this.player.runtime;
     const radar: RadarBlip[] = [];
+    const objectives: RadarObjective[] = [];
     const f = p.flight;
     const yaw = Math.atan2(2 * (f.qw * f.qy + f.qx * f.qz), 1 - 2 * (f.qy * f.qy + f.qz * f.qz));
+    for (const balloon of this.balloons) {
+      const spawn = BALLOON_SPAWNS[balloon.index];
+      objectives.push({
+        x: spawn.x - f.x,
+        y: spawn.z - f.z,
+        altitude: spawn.y,
+        alive: balloon.alive,
+        pickup: balloon.alive ? null : balloon.pickup,
+      });
+    }
     for (const other of this.planes) {
       if (other === this.player) continue;
       if (!other.runtime.alive) continue;
@@ -1194,6 +1214,7 @@ export class LocalMatch {
       missileWarning: p.alive && this.rockets.some((r) => r.targetId === p.id),
       target: hudTarget,
       radar,
+      objectives,
       playerHeading: yaw * 180 / Math.PI,
       hitFlash: this.hitFlash,
       damageFlash: Math.min(1, this.damageFlash + (p.alive ? 0 : 0.18)),
