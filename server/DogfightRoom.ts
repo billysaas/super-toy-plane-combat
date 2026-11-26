@@ -27,6 +27,8 @@ interface PlayerSim {
   lastChatAt: number;
   inputSeq: number;
   armor: number;
+  shield: number;
+  shieldUntil: number;
   cadenceUntil: number;
 }
 
@@ -198,6 +200,8 @@ export class DogfightRoom extends Room<DogfightState> {
       lastChatAt: 0,
       inputSeq: 0,
       armor: 0,
+      shield: 0,
+      shieldUntil: 0,
       cadenceUntil: 0,
     });
     if (!this.state.hostId) this.state.hostId = client.sessionId;
@@ -310,10 +314,14 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.rockets = sim.def.rocketAmmo;
     sim.state.maxHealth = sim.def.maxHealth;
     sim.state.armor = 0;
+    sim.state.shield = 0;
+    sim.state.shieldSeconds = 0;
     sim.state.cadenceSeconds = 0;
     sim.state.respawnIn = 0;
     sim.state.boosting = false;
     sim.armor = 0;
+    sim.shield = 0;
+    sim.shieldUntil = 0;
     sim.cadenceUntil = 0;
     sim.invulnerableUntil = this.simTime + (initial ? 1.2 : 2.4);
     sim.lastHitBy = null;
@@ -360,6 +368,11 @@ export class DogfightRoom extends Room<DogfightState> {
       }
       sim.fireCooldown = Math.max(0, sim.fireCooldown - dt);
       sim.rocketCooldown = Math.max(0, sim.rocketCooldown - dt);
+      if (sim.shield > 0 && this.simTime >= sim.shieldUntil) {
+        sim.shield = 0;
+        sim.state.shield = 0;
+        sim.state.shieldSeconds = 0;
+      }
       const speedBefore = sim.flight.speed;
       start.set(sim.flight.x, sim.flight.y, sim.flight.z);
       integrateFlight(sim.flight, sim.def, sim.controls, dt, sim.state.health / sim.def.maxHealth);
@@ -402,6 +415,8 @@ export class DogfightRoom extends Room<DogfightState> {
     sim.state.throttle = f.throttle;
     sim.state.boosting = sim.controls.boost;
     sim.state.armor = sim.armor;
+    sim.state.shield = sim.shield;
+    sim.state.shieldSeconds = Math.max(0, sim.shieldUntil - this.simTime);
     sim.state.cadenceSeconds = Math.max(0, sim.cadenceUntil - this.simTime);
     sim.state.lastProcessedInput = sim.inputSeq;
   }
@@ -578,6 +593,18 @@ export class DogfightRoom extends Room<DogfightState> {
     if (!target.state.alive) return;
     if (this.simTime < target.invulnerableUntil) return;
     let remaining = amount;
+    const shieldBefore = target.shield;
+    if (target.shield > 0) {
+      const absorbed = Math.min(target.shield, remaining);
+      target.shield -= absorbed;
+      remaining -= absorbed;
+      if (target.shield <= 0) target.shieldUntil = 0;
+      target.state.shield = target.shield;
+      this.broadcast("shieldHit", { id: target.id, x: target.flight.x, y: target.flight.y, z: target.flight.z });
+      if (shieldBefore > 0 && target.shield === 0) {
+        this.broadcast("shieldBreak", { id: target.id, x: target.flight.x, y: target.flight.y, z: target.flight.z });
+      }
+    }
     if (target.armor > 0) {
       const absorbed = Math.min(target.armor, remaining);
       target.armor -= absorbed;
@@ -659,6 +686,11 @@ export class DogfightRoom extends Room<DogfightState> {
       sim.state.armor = sim.armor;
     } else if (kind === "health") {
       sim.state.health = Math.min(sim.def.maxHealth, sim.state.health + BALLOON.healthAmount);
+    } else if (kind === "shield") {
+      sim.shield = BALLOON.shieldAmount;
+      sim.shieldUntil = this.simTime + BALLOON.shieldSeconds;
+      sim.state.shield = sim.shield;
+      sim.state.shieldSeconds = BALLOON.shieldSeconds;
     } else {
       sim.cadenceUntil = this.simTime + BALLOON.cadenceSeconds;
       sim.state.cadenceSeconds = BALLOON.cadenceSeconds;

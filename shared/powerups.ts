@@ -1,4 +1,4 @@
-export type PickupKind = "armor" | "health" | "cadence";
+export type PickupKind = "armor" | "health" | "cadence" | "shield";
 
 export interface BalloonSpawn {
   x: number;
@@ -30,6 +30,9 @@ export const BALLOON = {
   healthAmount: 45,
   cadenceSeconds: 12,
   cadenceMultiplier: 0.55,
+  shieldAmount: 70,
+  shieldMax: 70,
+  shieldSeconds: 10,
   scoreBonus: 25,
 };
 
@@ -37,9 +40,10 @@ export const PICKUP_INFO: Record<PickupKind, { label: string; toast: string; col
   armor: { label: "ARMOUR", toast: "ARMOUR +50", color: 0x64b5ff },
   health: { label: "HULL", toast: "HULL REPAIRED +45", color: 0x6be58a },
   cadence: { label: "RAPID FIRE", toast: "RAPID FIRE · 12S", color: 0xffd45c },
+  shield: { label: "ENERGY SHIELD", toast: "ENERGY SHIELD · 10S", color: 0x86e5ff },
 };
 
-const PICKUP_CYCLE: PickupKind[] = ["armor", "health", "cadence"];
+const PICKUP_CYCLE: PickupKind[] = ["armor", "health", "cadence", "shield"];
 
 export function pickupForBalloon(index: number): PickupKind {
   return PICKUP_CYCLE[index % PICKUP_CYCLE.length];

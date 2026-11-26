@@ -1,4 +1,4 @@
-import { BoxGeometry, ConeGeometry, Group, Mesh, MeshBasicMaterial, Object3D, Vector3 } from "three";
+import { AdditiveBlending, BoxGeometry, Color, ConeGeometry, Group, Mesh, MeshBasicMaterial, Object3D, ShaderMaterial, SphereGeometry, Vector3 } from "three";
 import type { AssetStore } from "./AssetStore";
 import type { AircraftDef, Team } from "../../shared/config";
 import { TEAM_INFO } from "../../shared/config";
@@ -10,6 +10,7 @@ export class AircraftView {
   private model: Object3D;
   private propeller: Object3D | null;
   private flames: Mesh[] = [];
+  private shieldBubble: Mesh;
   muzzleLocal: [Vector3, Vector3];
   exhaustLocal = new Vector3(0, 0.08, 0.9);
   visibleInCockpit = false;
@@ -42,6 +43,41 @@ export class AircraftView {
       this.flames.push(flame);
       this.group.add(flame);
     }
+
+    const shieldMat = new ShaderMaterial({
+      uniforms: {
+        uColor: { value: new Color(0x4fc3ff) },
+        uAlpha: { value: 0.5 },
+      },
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      vertexShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vView;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vView = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uColor;
+        uniform float uAlpha;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        void main() {
+          float rim = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 3.0);
+          float grid = smoothstep(0.92, 1.0, max(sin(vNormal.x * 34.0 + vNormal.y * 11.0), sin(vNormal.y * 29.0 - vNormal.z * 13.0))) * 0.28;
+          gl_FragColor = vec4(uColor * (0.9 + rim * 0.9), (rim * 0.5 + grid * rim * 0.55 + 0.012) * uAlpha);
+        }
+      `,
+    });
+    this.shieldBubble = new Mesh(new SphereGeometry(1.04, 20, 14), shieldMat);
+    this.shieldBubble.position.y = 0.1;
+    this.shieldBubble.visible = false;
+    this.group.add(this.shieldBubble);
   }
 
   sync(runtime: PlaneRuntime, dt: number, boost: boolean): void {
@@ -50,6 +86,14 @@ export class AircraftView {
     this.group.quaternion.set(f.qx, f.qy, f.qz, f.qw);
     this.group.visible = runtime.alive;
     if (this.propeller) this.propeller.rotation.z += (8 + f.speed * 1.8) * dt;
+    const shieldActive = runtime.alive && runtime.shield > 0;
+    this.shieldBubble.visible = shieldActive;
+    if (shieldActive) {
+      const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.045;
+      this.shieldBubble.scale.setScalar(pulse);
+      const mat = this.shieldBubble.material as ShaderMaterial;
+      mat.uniforms.uAlpha.value = 0.18 + Math.min(0.22, runtime.shield / runtime.shieldMax * 0.22);
+    }
     for (let i = 0; i < this.flames.length; i++) {
       const flame = this.flames[i];
       flame.visible = boost && runtime.alive;
@@ -80,6 +124,7 @@ export class AircraftView {
 
   setCockpitHidden(hidden: boolean): void {
     this.model.visible = !hidden;
+    if (hidden) this.shieldBubble.visible = false;
   }
 }
 

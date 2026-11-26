@@ -58,6 +58,9 @@ export interface HudData {
   maxHealth: number;
   armor: number;
   armorMax: number;
+  shield: number;
+  shieldMax: number;
+  shieldSeconds: number;
   cadence: number;
   speed: number;
   altitude: number;
@@ -142,6 +145,7 @@ interface LocalPlane {
   previousRocket: boolean;
   aiSpread: number;
   cadenceUntil: number;
+  shieldUntil: number;
 }
 
 interface LocalBalloon {
@@ -267,6 +271,8 @@ export class LocalMatch {
       health: def.maxHealth,
       maxHealth: def.maxHealth,
       armor: 0,
+      shield: 0,
+      shieldMax: BALLOON.shieldMax,
       ammo: def.gunAmmo,
       rockets: def.rocketAmmo,
       alive: true,
@@ -299,6 +305,7 @@ export class LocalMatch {
       previousRocket: false,
       aiSpread: isBot ? 0.7 : 1,
       cadenceUntil: 0,
+      shieldUntil: 0,
     };
   }
 
@@ -361,6 +368,7 @@ export class LocalMatch {
       }
       p.runtime.fireCooldown = Math.max(0, p.runtime.fireCooldown - dt);
       p.runtime.rocketCooldown = Math.max(0, p.runtime.rocketCooldown - dt);
+      if (p.runtime.shield > 0 && this.simTime >= p.shieldUntil) p.runtime.shield = 0;
       p.collisionCooldown = Math.max(0, p.collisionCooldown - dt);
       if (p.bot) {
         const aiPlanes = this.planes.map<AIWorldPlane>((other) => ({
@@ -726,7 +734,10 @@ export class LocalMatch {
   private applyPickup(p: LocalPlane, kind: PickupKind, at: Vector3): void {
     if (kind === "armor") p.runtime.armor = Math.min(BALLOON.armorMax, p.runtime.armor + BALLOON.armorAmount);
     else if (kind === "health") p.runtime.health = Math.min(p.runtime.maxHealth, p.runtime.health + BALLOON.healthAmount);
-    else p.cadenceUntil = this.simTime + BALLOON.cadenceSeconds;
+    else if (kind === "shield") {
+      p.runtime.shield = BALLOON.shieldAmount;
+      p.shieldUntil = this.simTime + BALLOON.shieldSeconds;
+    } else p.cadenceUntil = this.simTime + BALLOON.cadenceSeconds;
     this.deps.effects.hitSpark(at, PICKUP_INFO[kind].color);
     if (p !== this.player) return;
     this.hitFlash = 1;
@@ -738,6 +749,20 @@ export class LocalMatch {
     if (!target.runtime.alive) return;
     if (this.simTime < target.runtime.invulnerableUntil) return;
     let remaining = amount;
+    const shieldBefore = target.runtime.shield;
+    if (target.runtime.shield > 0) {
+      const absorbed = Math.min(target.runtime.shield, remaining);
+      target.runtime.shield -= absorbed;
+      remaining -= absorbed;
+      if (target.runtime.shield <= 0) target.shieldUntil = 0;
+      if (target === this.player) {
+        this.deps.effects.hitSpark(new Vector3(target.runtime.flight.x, target.runtime.flight.y, target.runtime.flight.z), 0x86e5ff);
+        this.deps.audio.shieldHit();
+      }
+    }
+    if (shieldBefore > 0 && target.runtime.shield === 0) {
+      this.deps.effects.shieldBreak(new Vector3(target.runtime.flight.x, target.runtime.flight.y, target.runtime.flight.z));
+    }
     if (target.runtime.armor > 0) {
       const absorbed = Math.min(target.runtime.armor, remaining);
       target.runtime.armor -= absorbed;
@@ -798,6 +823,8 @@ export class LocalMatch {
     respawnFlight(p.runtime.flight, spawn.x, spawn.y, spawn.z, spawn.yaw, p.def);
     p.runtime.health = p.runtime.maxHealth;
     p.runtime.armor = 0;
+    p.runtime.shield = 0;
+    p.shieldUntil = 0;
     p.runtime.ammo = p.def.gunAmmo;
     p.runtime.rockets = p.def.rocketAmmo;
     p.cadenceUntil = 0;
@@ -937,6 +964,9 @@ export class LocalMatch {
       maxHealth: p.maxHealth,
       armor: p.armor,
       armorMax: BALLOON.armorMax,
+      shield: p.shield,
+      shieldMax: BALLOON.shieldMax,
+      shieldSeconds: Math.max(0, this.player.shieldUntil - this.simTime),
       cadence: Math.max(0, this.player.cadenceUntil - this.simTime),
       speed: p.flight.speed * 4.6,
       altitude: p.flight.y * 3.2,

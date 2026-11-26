@@ -104,6 +104,10 @@ function buildPickup(kind: PickupKind): { group: Group; core: Object3D; ring: Me
     const holder = new Group();
     holder.add(shield, shieldCore);
     core = holder;
+  } else if (kind === "shield") {
+    const bubble = new Mesh(new SphereGeometry(0.62, 10, 8), glow);
+    bubble.scale.set(1, 1.08, 1);
+    core = bubble;
   } else {
     const bolt = new Mesh(new OctahedronGeometry(0.58, 0), glow);
     bolt.scale.set(0.72, 1.35, 0.72);

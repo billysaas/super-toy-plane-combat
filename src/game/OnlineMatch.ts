@@ -55,6 +55,8 @@ interface NetPlayerState {
   health: number;
   maxHealth: number;
   armor: number;
+  shield: number;
+  shieldSeconds: number;
   cadenceSeconds: number;
   ammo: number;
   rockets: number;
@@ -105,6 +107,8 @@ interface Snapshot {
   health: number;
   maxHealth: number;
   armor: number;
+  shield: number;
+  shieldSeconds: number;
   cadenceSeconds: number;
   ammo: number;
   rockets: number;
@@ -245,6 +249,8 @@ export class OnlineMatch implements ActiveMatch {
         health: p.health,
         maxHealth: p.maxHealth,
         armor: p.armor,
+        shield: p.shield,
+        shieldSeconds: p.shieldSeconds,
         cadenceSeconds: p.cadenceSeconds,
         ammo: p.ammo,
         rockets: p.rockets,
@@ -280,6 +286,7 @@ export class OnlineMatch implements ActiveMatch {
       actor.runtime.health = snap.health;
       actor.runtime.maxHealth = snap.maxHealth;
       actor.runtime.armor = snap.armor;
+      actor.runtime.shield = snap.shield;
       actor.runtime.ammo = snap.ammo;
       actor.runtime.rockets = snap.rockets;
       actor.runtime.kills = snap.kills;
@@ -317,6 +324,8 @@ export class OnlineMatch implements ActiveMatch {
       health: snap.health,
       maxHealth: snap.maxHealth,
       armor: snap.armor,
+      shield: snap.shield,
+      shieldMax: BALLOON.shieldMax,
       ammo: snap.ammo,
       rockets: snap.rockets,
       alive: snap.alive,
@@ -405,6 +414,7 @@ export class OnlineMatch implements ActiveMatch {
     this.local.runtime.health = localSnap.health;
     this.local.runtime.maxHealth = localSnap.maxHealth;
     this.local.runtime.armor = localSnap.armor;
+    this.local.runtime.shield = localSnap.shield;
     this.local.runtime.ammo = localSnap.ammo;
     this.local.runtime.rockets = localSnap.rockets;
     this.local.runtime.kills = localSnap.kills;
@@ -533,6 +543,7 @@ export class OnlineMatch implements ActiveMatch {
       actor.runtime.health = snap.health;
       actor.runtime.maxHealth = snap.maxHealth;
       actor.runtime.armor = snap.armor;
+      actor.runtime.shield = snap.shield;
       actor.runtime.ammo = snap.ammo;
       actor.runtime.rockets = snap.rockets;
       actor.runtime.kills = snap.kills;
@@ -663,7 +674,7 @@ export class OnlineMatch implements ActiveMatch {
           id, name: p.name, team: p.team, aircraft: p.aircraft, alive: p.alive,
           flight: toFlight(p), health: p.health, maxHealth: p.maxHealth, ammo: p.ammo,
           rockets: p.rockets, kills: p.kills, deaths: p.deaths, score: p.score, boosting: p.boosting, respawnIn: p.respawnIn,
-          armor: p.armor, cadenceSeconds: p.cadenceSeconds,
+          armor: p.armor, shield: p.shield, shieldSeconds: p.shieldSeconds, cadenceSeconds: p.cadenceSeconds,
         };
       }
     });
@@ -711,6 +722,9 @@ export class OnlineMatch implements ActiveMatch {
       maxHealth: snap?.maxHealth ?? 100,
       armor: snap?.armor ?? 0,
       armorMax: BALLOON.armorMax,
+      shield: snap?.shield ?? 0,
+      shieldMax: BALLOON.shieldMax,
+      shieldSeconds: snap?.shieldSeconds ?? 0,
       cadence: snap?.cadenceSeconds ?? 0,
       speed: f.speed * 4.6,
       altitude: f.y * 3.2,
@@ -854,6 +868,15 @@ export class OnlineMatch implements ActiveMatch {
       }
     } else if (event === "kill") {
       this.deps.callbacks.onKillFeed(payload);
+    } else if (event === "shieldHit") {
+      const pos = new Vector3(payload.x, payload.y, payload.z);
+      this.deps.effects.hitSpark(pos, 0x86e5ff);
+      if (payload.id === this.sessionId) this.deps.audio.shieldHit();
+    } else if (event === "shieldBreak") {
+      const pos = new Vector3(payload.x, payload.y, payload.z);
+      this.deps.effects.shieldBreak(pos);
+      const dist = this.local ? pos.distanceTo(new Vector3(this.local.runtime.flight.x, this.local.runtime.flight.y, this.local.runtime.flight.z)) : 999;
+      if (dist < 60) this.deps.camera.addShake(clamp(1 - dist / 60, 0.1, 0.5));
     } else if (event === "balloonHit") {
       const pos = new Vector3(payload.x, payload.y, payload.z);
       this.deps.effects.hitSpark(pos, 0xffcf8a);

@@ -46,6 +46,8 @@ export interface PlaneRuntime {
   health: number;
   maxHealth: number;
   armor: number;
+  shield: number;
+  shieldMax: number;
   ammo: number;
   rockets: number;
   alive: boolean;
