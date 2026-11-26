@@ -14,6 +14,13 @@ export class AudioManager {
   private music?: HTMLAudioElement;
   private musicUserEnabled = true;
   private menuMusicActive = false;
+  private combatActive = false;
+  private combatDucked = false;
+  private combatIntensity = 0.6;
+  private combatBus?: GainNode;
+  private combatTimer?: number;
+  private combatStep = 0;
+  private nextCombatStep = 0;
 
   init(): void {
     if (this.ctx) {
@@ -34,6 +41,7 @@ export class AudioManager {
     this.master.connect(limiter);
     limiter.connect(this.ctx.destination);
     this.noiseBuffer = this.createNoise(1.2);
+    this.syncCombat();
   }
 
   private createNoise(seconds: number): AudioBuffer {
@@ -72,7 +80,159 @@ export class AudioManager {
   toggleMusic(): boolean {
     this.musicUserEnabled = !this.musicUserEnabled;
     this.syncMusic();
+    this.syncCombat();
     return this.musicUserEnabled;
+  }
+
+  setCombatMusic(active: boolean): void {
+    this.combatActive = active;
+    this.syncCombat();
+  }
+
+  setCombatIntensity(value: number): void {
+    this.combatIntensity = Math.max(0, Math.min(1, value));
+    if (this.combatBus && this.ctx) {
+      this.combatBus.gain.setTargetAtTime(this.combatGain(), this.ctx.currentTime, 0.35);
+    }
+  }
+
+  setCombatMusicDucked(ducked: boolean): void {
+    this.combatDucked = ducked;
+    if (this.combatBus && this.ctx) {
+      this.combatBus.gain.setTargetAtTime(this.combatGain(), this.ctx.currentTime, 0.18);
+    }
+  }
+
+  private combatGain(): number {
+    const base = 0.085 + this.combatIntensity * 0.075;
+    return this.combatDucked ? base * 0.12 : base;
+  }
+
+  private syncCombat(): void {
+    if (!this.ctx || !this.master) return;
+    if (this.combatActive && this.musicUserEnabled) this.startCombatLoop();
+    else this.stopCombatLoop();
+  }
+
+  private startCombatLoop(): void {
+    if (!this.ctx || !this.master) return;
+    if (this.combatTimer !== undefined) {
+      this.combatBus?.gain.setTargetAtTime(this.combatGain(), this.ctx.currentTime, 0.25);
+      return;
+    }
+    if (this.ctx.state === "suspended") void this.ctx.resume();
+    if (!this.combatBus) {
+      this.combatBus = this.ctx.createGain();
+      this.combatBus.gain.value = 0;
+      this.combatBus.connect(this.master);
+    }
+    this.combatBus.gain.setTargetAtTime(this.combatGain(), this.ctx.currentTime, 0.4);
+    this.combatStep = 0;
+    this.nextCombatStep = this.ctx.currentTime + 0.06;
+    this.combatTimer = window.setInterval(() => this.scheduleCombat(), 25);
+    this.scheduleCombat();
+  }
+
+  private stopCombatLoop(): void {
+    if (this.combatTimer !== undefined) {
+      window.clearInterval(this.combatTimer);
+      this.combatTimer = undefined;
+    }
+    if (this.combatBus && this.ctx) {
+      this.combatBus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.18);
+    }
+  }
+
+  private scheduleCombat(): void {
+    const ctx = this.ctx;
+    const bus = this.combatBus;
+    if (!ctx || !bus || !this.noiseBuffer || ctx.state !== "running") return;
+    if (this.nextCombatStep < ctx.currentTime - 0.5) this.nextCombatStep = ctx.currentTime + 0.05;
+    const stepDuration = 60 / 128 / 4;
+    while (this.nextCombatStep < ctx.currentTime + 0.12) {
+      this.playCombatStep(this.combatStep, this.nextCombatStep, bus);
+      this.nextCombatStep += stepDuration;
+      this.combatStep = (this.combatStep + 1) % 32;
+    }
+  }
+
+  private playCombatStep(step: number, time: number, bus: GainNode): void {
+    const ctx = this.ctx!;
+    const bar = step % 16;
+    const phrase = step % 32;
+    if (bar === 0 || bar === 4 || bar === 8 || bar === 12) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(bar === 0 ? 145 : 120, time);
+      osc.frequency.exponentialRampToValueAtTime(46, time + 0.16);
+      gain.gain.setValueAtTime(0.14, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.24);
+      osc.connect(gain);
+      gain.connect(bus);
+      osc.start(time);
+      osc.stop(time + 0.26);
+    }
+    if (bar === 4 || bar === 12 || (bar === 14 && phrase > 16)) {
+      this.combatNoise(time, "bandpass", 1700, 0.8, 0.075, 0.12, bus);
+    }
+    if (bar % 2 === 0 && this.combatIntensity > 0.18) {
+      this.combatNoise(time, "highpass", 6800, 0.7, 0.012 + this.combatIntensity * 0.008, 0.045, bus);
+    }
+    if (bar % 2 === 0) {
+      const notes = [73.42, 73.42, 87.31, 55, 73.42, 65.41, 55, 43.65];
+      const freq = notes[Math.floor(step / 2) % notes.length];
+      const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+      filter.type = "lowpass";
+      filter.frequency.value = 220;
+      filter.Q.value = 2.2;
+      gain.gain.setValueAtTime(0.0001, time);
+      gain.gain.linearRampToValueAtTime(0.055, time + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(bus);
+      osc.start(time);
+      osc.stop(time + 0.22);
+    }
+    if ((phrase === 0 || phrase === 16) && this.combatIntensity > 0.52) {
+      const chord = phrase === 0 ? [293.66, 349.23, 440] : [261.63, 329.63, 392];
+      for (const freq of chord) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.018, time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+        osc.connect(gain);
+        gain.connect(bus);
+        osc.start(time);
+        osc.stop(time + 0.32);
+      }
+    }
+  }
+
+  private combatNoise(time: number, type: BiquadFilterType, frequency: number, q: number, gainValue: number, duration: number, bus: GainNode): void {
+    if (!this.ctx || !this.noiseBuffer) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = type;
+    filter.frequency.value = frequency;
+    filter.Q.value = q;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(gainValue, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus);
+    src.start(time);
+    src.stop(time + duration + 0.02);
   }
 
   private ensureMusic(): HTMLAudioElement | undefined {
