@@ -2722,6 +2722,101 @@ select {
   font-weight: 400;
 }
 
+.results-career {
+  max-width: 540px;
+  margin: 0 auto 18px;
+  padding: 8px 12px;
+  text-align: left;
+  background: rgba(8, 17, 30, 0.66);
+  border: 1px solid rgba(248, 200, 64, 0.22);
+}
+
+.career-result-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #a9bfd3;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.career-result-top b {
+  color: var(--yellow);
+  font-family: var(--pixel);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.results-career .career-progress {
+  margin: 7px 0 5px;
+}
+
+.career-result-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #71879d;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.career-result-foot .rank-up {
+  color: var(--yellow);
+  font-weight: 400;
+  text-shadow: 0 0 10px rgba(248, 200, 64, 0.45);
+}
+
+.career-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  max-width: 420px;
+  padding: 7px 10px;
+  color: #8198ad;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  background: rgba(6, 13, 23, 0.58);
+  border: 1px solid rgba(246, 234, 209, 0.14);
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+
+.career-strip .career-label {
+  color: #657d94;
+  font-family: var(--pixel);
+  font-size: 7px;
+}
+
+.career-strip b {
+  color: var(--yellow);
+  font-family: var(--pixel);
+  font-size: 8px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.career-progress {
+  flex: 1;
+  height: 5px;
+  min-width: 46px;
+  background: rgba(3, 8, 14, 0.8);
+  border: 1px solid rgba(246, 234, 209, 0.16);
+}
+
+.career-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--yellow);
+  box-shadow: 0 0 7px rgba(248, 200, 64, 0.5);
+  transition: width 0.35s ease;
+}
+
+.career-strip #career-xp {
+  color: #8198ad;
+  white-space: nowrap;
+}
+
 .results-buttons {
   display: flex;
   gap: 9px;

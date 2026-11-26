@@ -14,6 +14,7 @@ A complete, playable 3D arcade dogfighting game set in a giant low-poly toy hous
 - **Destructible balloons:** ten drifting hot-air balloons can be shot down to release floating armour, hull repair, rapid-fire or energy-shield pickups. Fly through a pickup to collect it.
 - **Four aircraft:** Meadowhawk, Blue Jay, Crimson Fox and Golden Wasp, each with its own speed, agility, armour, ammo and handling.
 - **Two cameras:** chase camera and first-person cockpit view with cockpit framing.
+- **Pilot career:** local XP, rank progression from Rookie to Toy Ace, career totals and rank-up notices on the debrief. Stored in the browser; no account required.
 - **Post-match debrief:** accuracy, damage, rocket hits, balloons popped, best streak and longest life, plus earned medals such as ACE, UNTOUCHED, BALLOON BUSTER and SHARPSHOOTER.
 - **Solo play:** team deathmatch, free-for-all or three-life survival against 1–11 AI pilots with Rookie, Pilot and Ace difficulty. Survival throws escalating reinforcement waves at you until the last toy pilot is out of the box.
 - **Online play:** Colyseus authoritative team deathmatch and free-for-all rooms for up to 24 players, public rooms, private rooms joined by code, matchmaking lobby, ready checks, teams, scoreboard, kill feed and radio chat.
