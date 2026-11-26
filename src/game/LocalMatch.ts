@@ -41,6 +41,7 @@ export interface HudTarget {
   health: number;
   team: Team;
   onScreen: boolean;
+  locked: boolean;
 }
 
 export interface RadarBlip {
@@ -259,6 +260,7 @@ export class LocalMatch {
   private lastBotChat = 0;
   private stats = createMatchStats();
   private lifeStartedAt = 0;
+  private lockTone = false;
   private survival = false;
   private wave = 1;
   private lives = 3;
@@ -1164,6 +1166,7 @@ export class LocalMatch {
     const camera = this.deps.camera.camera;
     if (!this.player.runtime.alive) {
       this.lastHudTarget = null;
+      this.lockTone = false;
       return;
     }
     const f = this.player.runtime.flight;
@@ -1192,10 +1195,13 @@ export class LocalMatch {
     if (!best) {
       this.lastHudTarget = null;
       this.lastTargetId = null;
+      this.lockTone = false;
       return;
     }
     this.lastTargetId = best.runtime.id;
     tmp.set(best.runtime.flight.x, best.runtime.flight.y, best.runtime.flight.z);
+    const toTarget = tmp.clone().sub(playerPos).normalize();
+    const locked = toTarget.dot(fwd) > 0.95;
     tmp2.copy(tmp).project(camera);
     const onScreen = tmp2.z < 1 && tmp2.z > -1 && Math.abs(tmp2.x) < 1.15 && Math.abs(tmp2.y) < 1.15;
     const target: HudTarget = {
@@ -1205,7 +1211,10 @@ export class LocalMatch {
       health: best.runtime.health / best.runtime.maxHealth,
       team: best.runtime.team,
       onScreen,
+      locked,
     };
+    if (locked && !this.lockTone) this.deps.audio.lockOn();
+    this.lockTone = locked;
     this.lastHudTarget = target;
   }
 

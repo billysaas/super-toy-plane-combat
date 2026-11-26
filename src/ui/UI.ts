@@ -626,6 +626,8 @@ export class UIManager {
     const bracket = el("target-bracket");
     if (data.target && data.target.onScreen && data.alive) {
       bracket.classList.remove("hidden");
+      bracket.classList.toggle("locked", data.target.locked);
+      el("target-lock").classList.toggle("hidden", !data.target.locked);
       bracket.style.left = `${Math.max(4, Math.min(96, data.target.x))}%`;
       bracket.style.top = `${Math.max(8, Math.min(92, data.target.y))}%`;
       el("target-distance").textContent = `${Math.round(data.target.distance)}M`;
@@ -633,6 +635,8 @@ export class UIManager {
       bracket.style.opacity = "1";
     } else {
       bracket.classList.add("hidden");
+      bracket.classList.remove("locked");
+      el("target-lock").classList.add("hidden");
     }
     if (data.hitFlash > 0.72 && this.lastHit <= 0.72) {
       const marker = el("hitmarker");
