@@ -126,6 +126,8 @@ interface OnlinePlane {
   target: Vector3;
   targetQ: Quaternion;
   spawnGrace: number;
+  smokeTimer: number;
+  flameTimer: number;
 }
 
 interface VisualRocket {
@@ -341,6 +343,8 @@ export class OnlineMatch implements ActiveMatch {
       target: new Vector3(snap.flight.x, snap.flight.y, snap.flight.z),
       targetQ: new Quaternion(snap.flight.qx, snap.flight.qy, snap.flight.qz, snap.flight.qw),
       spawnGrace: 0,
+      smokeTimer: Math.random() * 0.1,
+      flameTimer: Math.random() * 0.08,
     };
     this.planes.set(snap.id, actor);
     return actor;
@@ -379,8 +383,12 @@ export class OnlineMatch implements ActiveMatch {
       }
       this.stepLocal(dt, localSnap);
       const firing = this.localControls.fire || this.localControls.rocket;
+      const healthRatio = localSnap.maxHealth > 0 ? localSnap.health / localSnap.maxHealth : 0;
+      const stalled = localSnap.flight.speed < this.local.def.minSpeed * 0.82;
+      this.deps.camera.setBuffet(Math.max(0, 0.5 - healthRatio) * 1.4 + (stalled ? 0.55 : 0));
       this.deps.camera.update(dt, this.local.runtime, this.local.runtime.flight.speed / this.local.def.boostSpeed, this.localControls.boost, this.deps.camera.camera.aspect, firing);
     } else {
+      this.deps.camera.setBuffet(0);
       if (this.lastAlive) {
         this.lastAlive = false;
         this.local.view.group.visible = false;
@@ -412,7 +420,7 @@ export class OnlineMatch implements ActiveMatch {
     this.updateRocketVisuals(dt);
     this.deps.physics.step(dt);
     this.deps.effects.update(dt, this.deps.physics);
-    this.deps.audio.setEngine(this.local.runtime.flight.speed, this.localControls.boost, this.local.runtime.alive);
+    this.deps.audio.setEngine(this.local.runtime.flight.speed, this.localControls.boost, this.local.runtime.alive, this.localSnapshot ? this.localSnapshot.health / this.localSnapshot.maxHealth : 1);
     this.collisionCooldown = Math.max(0, this.collisionCooldown - dt);
     this.hitFlash = Math.max(0, this.hitFlash - dt * 4.4);
     this.damageFlash = Math.max(0, this.damageFlash - dt * 2.2);
@@ -440,7 +448,7 @@ export class OnlineMatch implements ActiveMatch {
     this.localControls = { ...this.lastControls };
     const f = this.local.runtime.flight;
     const old = new Vector3(f.x, f.y, f.z);
-    integrateFlight(f, this.local.def, this.localControls, dt);
+    integrateFlight(f, this.local.def, this.localControls, dt, this.local.runtime.health / this.local.runtime.maxHealth);
     const next = new Vector3(f.x, f.y, f.z);
     const sweep = this.deps.physics.planeSweep(old, next, WORLD.planeRadius);
     if (sweep.hit) {
@@ -567,13 +575,29 @@ export class OnlineMatch implements ActiveMatch {
 
   private updateVisuals(dt: number): void {
     for (const actor of this.planes.values()) {
+      actor.smokeTimer -= dt;
+      actor.flameTimer -= dt;
       if (actor.isLocal) {
         actor.view.group.visible = this.localSnapshot?.alive ?? false;
         actor.view.setCockpitHidden(this.cameraMode === "cockpit" && actor.runtime.alive);
-        continue;
+      } else {
+        actor.view.group.visible = actor.runtime.alive;
+        actor.view.sync(actor.runtime, dt, actor.runtime.alive && (this.state.players.get(actor.id)?.boosting ?? false));
       }
-      actor.view.group.visible = actor.runtime.alive;
-      actor.view.sync(actor.runtime, dt, actor.runtime.alive && (this.state.players.get(actor.id)?.boosting ?? false));
+      if (!actor.runtime.alive) continue;
+      const ratio = actor.runtime.maxHealth > 0 ? actor.runtime.health / actor.runtime.maxHealth : 1;
+      if (ratio < 0.38 && actor.smokeTimer <= 0) {
+        actor.smokeTimer = 0.11;
+        const exhaust = actor.view.worldExhaust(new Vector3());
+        const dir = actor.view.worldDirection(new Vector3());
+        this.deps.effects.smokeTrail(exhaust, dir, ratio < 0.2, 0.9);
+      }
+      if (ratio < 0.22 && actor.flameTimer <= 0) {
+        actor.flameTimer = 0.08;
+        const exhaust = actor.view.worldExhaust(new Vector3());
+        const dir = actor.view.worldDirection(new Vector3());
+        this.deps.effects.damageFlame(exhaust, dir);
+      }
     }
   }
 
@@ -704,6 +728,7 @@ export class OnlineMatch implements ActiveMatch {
       deaths: snap?.deaths ?? 0,
       boosting: this.localControls.boost && (snap?.alive ?? false),
       invulnerable: false,
+      stalled: (snap?.alive ?? false) && f.speed < this.local.def.minSpeed * 0.82,
       target: this.lastHudTarget,
       radar,
       playerHeading: yaw * 180 / Math.PI,

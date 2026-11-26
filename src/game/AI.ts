@@ -261,6 +261,8 @@ export class BotPilot {
       roll = clamp(roll, -0.6, 0.6);
     }
     if (f.y > 20.8 && forwardClear < 30) pitch = Math.min(pitch, -0.15);
+    if (f.speed < 4.1) pitch = Math.min(pitch, 0.15);
+    if (f.speed < 3.5) pitch = Math.min(pitch, -0.18);
     if (this.healthRatio(self) < 0.25) {
       pitch = clamp(pitch + Math.sin(this.seed * 0.7) * 0.25, -0.8, 0.82);
     }

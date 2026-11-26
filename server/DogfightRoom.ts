@@ -362,7 +362,7 @@ export class DogfightRoom extends Room<DogfightState> {
       sim.rocketCooldown = Math.max(0, sim.rocketCooldown - dt);
       const speedBefore = sim.flight.speed;
       start.set(sim.flight.x, sim.flight.y, sim.flight.z);
-      integrateFlight(sim.flight, sim.def, sim.controls, dt);
+      integrateFlight(sim.flight, sim.def, sim.controls, dt, sim.state.health / sim.def.maxHealth);
       tmp.set(sim.flight.x, sim.flight.y, sim.flight.z);
       const sweep = sphereSweepWorld(start, tmp.clone().sub(start), WORLD.planeRadius, STATIC_BOXES);
       if (sweep.hit) {

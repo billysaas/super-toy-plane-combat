@@ -544,6 +544,17 @@ export class UIManager {
     el("score-kd").textContent = `${data.kills} / ${data.deaths}`;
     el("low-health").classList.toggle("active", data.alive && healthRatio < 0.3);
     el("damage-vignette").style.opacity = String(Math.min(0.92, data.damageFlash));
+    const condition = data.maxHealth > 0 ? data.health / data.maxHealth : 0;
+    let warning = "";
+    if (data.alive) {
+      if (condition < 0.22) warning = "HULL CRITICAL · BREAK OFF";
+      else if (data.stalled) warning = "STALL · NOSE DOWN · FULL THROTTLE";
+      else if (condition < 0.5) warning = "AIRFRAME DAMAGED · HANDLING REDUCED";
+    }
+    const warningNode = el("hud-warning");
+    warningNode.classList.toggle("hidden", !warning);
+    warningNode.classList.toggle("danger", condition < 0.22 || data.stalled);
+    if (warning) el("hud-warning-text").textContent = warning;
     const crosshair = el("crosshair");
     crosshair.classList.toggle("hidden", !data.alive);
     const bracket = el("target-bracket");

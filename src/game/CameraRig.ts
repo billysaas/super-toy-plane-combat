@@ -20,6 +20,7 @@ export class CameraRig {
   private currentQuat = new Quaternion();
   private physics: PhysicsWorld;
   private fov = 72;
+  private buffet = 0;
 
   constructor(aspect: number, physics: PhysicsWorld) {
     this.camera = new PerspectiveCamera(72, aspect, 0.08, 520);
@@ -40,6 +41,10 @@ export class CameraRig {
     this.shake = Math.min(1.8, this.shake + amount);
   }
 
+  setBuffet(level: number): void {
+    this.buffet = Math.max(0, Math.min(1, level));
+  }
+
   snapTo(plane: PlaneRuntime): void {
     const f = plane.flight;
     const q = new Quaternion(f.qx, f.qy, f.qz, f.qw);
@@ -54,6 +59,7 @@ export class CameraRig {
   resetMenus(): void {
     this.mode = "chase";
     this.camera.fov = 65;
+    this.buffet = 0;
     this.camera.updateProjectionMatrix();
   }
 
@@ -127,6 +133,12 @@ export class CameraRig {
       this.camera.position.y += Math.sin(this.shakeTime * 93 + 1.2) * amp;
       this.camera.rotateZ(Math.sin(this.shakeTime * 65) * amp * 0.32);
       this.shake *= Math.exp(-dt * 4.6);
+    }
+    if (this.buffet > 0.001) {
+      const amp = this.buffet * 0.016;
+      this.camera.position.x += Math.sin(this.shakeTime * 41.7) * amp;
+      this.camera.position.y += Math.sin(this.shakeTime * 57.3 + 0.7) * amp * 0.7;
+      this.camera.rotateZ(Math.sin(this.shakeTime * 33.1) * amp * 0.3);
     }
   }
 

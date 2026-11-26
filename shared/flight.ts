@@ -11,6 +11,9 @@ const rightVec = new Vector3();
 const upVec = new Vector3();
 const LEVEL_ROLL_GAIN = 0.5;
 const LEVEL_PITCH_GAIN = 0.5;
+const CLIMB_ENERGY_PENALTY = 1.8;
+const STALL_SPEED_RATIO = 0.82;
+const STALL_NOSE_DROP = 1.15;
 
 function cruiseSpeed(def: AircraftDef): number {
   return def.minSpeed + (def.maxSpeed - def.minSpeed) * DEFAULT_THROTTLE;
@@ -38,33 +41,40 @@ export function getQuaternion(state: FlightState, out = new Quaternion()): Quate
   return out.set(state.qx, state.qy, state.qz, state.qw);
 }
 
-export function integrateFlight(state: FlightState, def: AircraftDef, controls: Controls, dt: number): void {
+export function integrateFlight(state: FlightState, def: AircraftDef, controls: Controls, dt: number, condition = 1): void {
   const throttle = clamp(controls.throttle, 0.15, 1);
   state.throttle = throttle;
   const pitch = clamp(controls.pitch, -1, 1);
   const roll = clamp(controls.roll, -1, 1);
   const yaw = clamp(controls.yaw, -1, 1);
+  const health = clamp(condition, 0.12, 1);
+  const damageFactor = 0.62 + health * 0.38;
 
   const boosting = controls.boost && state.boost > 0.5;
   if (boosting) state.boost = Math.max(0, state.boost - 31 * dt);
   else state.boost = Math.min(100, state.boost + 17 * dt);
 
-  const targetSpeed = def.minSpeed + (def.maxSpeed - def.minSpeed) * throttle + (boosting ? def.boostSpeed - def.maxSpeed : 0);
+  const q = new Quaternion(state.qx, state.qy, state.qz, state.qw);
+  localForward.set(0, 0, -1).applyQuaternion(q);
+  const climb = localForward.y;
+  const climbPenalty = climb * CLIMB_ENERGY_PENALTY;
+  const baseTarget = def.minSpeed + (def.maxSpeed - def.minSpeed) * throttle + (boosting ? def.boostSpeed - def.maxSpeed : 0);
+  const targetSpeed = (baseTarget - climbPenalty) * (0.74 + health * 0.26);
   const turnLoad = Math.abs(pitch) * 0.09 + Math.abs(roll) * 0.03 + Math.abs(yaw) * 0.035;
+  const acceleration = def.acceleration * (0.58 + health * 0.42);
   const diff = targetSpeed - state.speed;
-  state.speed = clamp(state.speed + clamp(diff, -def.acceleration * dt, def.acceleration * dt) - state.speed * turnLoad * dt, 1.2, def.boostSpeed * 1.08);
+  state.speed = clamp(state.speed + clamp(diff, -acceleration * dt, acceleration * dt) - state.speed * turnLoad * dt, 1.2, def.boostSpeed * 1.08);
 
+  const stallSpeed = def.minSpeed * STALL_SPEED_RATIO;
+  const stallFactor = clamp((state.speed - 1.1) / (stallSpeed - 1.1), 0.24, 1);
   const speedFactor = clamp(state.speed / def.maxSpeed, 0.38, 1.3);
   const lowSpeed = 1 - clamp(state.speed / def.maxSpeed, 0, 1);
   const turnAssist = 2.1 + lowSpeed * 1.2;
-  const q = new Quaternion(state.qx, state.qy, state.qz, state.qw);
-  const pitchRate = def.pitchRate * speedFactor * turnAssist;
-  const rollRate = def.rollRate * clamp(speedFactor, 0.55, 1.2) * (1.3 + lowSpeed * 0.6);
-  const yawRate = def.yawRate * speedFactor * turnAssist;
+  const pitchRate = def.pitchRate * speedFactor * turnAssist * damageFactor * stallFactor;
+  const rollRate = def.rollRate * clamp(speedFactor, 0.55, 1.2) * (1.3 + lowSpeed * 0.6) * damageFactor * Math.max(0.55, stallFactor);
+  const yawRate = def.yawRate * speedFactor * turnAssist * damageFactor * stallFactor;
 
   if (controls.autoLevelPitch) {
-    localForward.set(0, 0, -1).applyQuaternion(q);
-    const climb = Math.asin(clamp(localForward.y, -1, 1));
     const levelPitch = clamp(-climb * LEVEL_PITCH_GAIN, -1, 1);
     if (Math.abs(levelPitch) > 0.001) {
       axis.set(1, 0, 0);
@@ -73,6 +83,12 @@ export function integrateFlight(state: FlightState, def: AircraftDef, controls: 
   } else if (Math.abs(pitch) > 0.001) {
     axis.set(1, 0, 0);
     q.multiply(dq.setFromAxisAngle(axis, pitch * pitchRate * dt));
+  }
+  if (state.speed < stallSpeed) {
+    // A stalled wing stops lifting: the nose falls through and control authority fades.
+    const bite = clamp((stallSpeed - state.speed) / stallSpeed, 0, 1);
+    axis.set(1, 0, 0);
+    q.multiply(dq.setFromAxisAngle(axis, -bite * STALL_NOSE_DROP * (0.45 + def.pitchRate * 0.22) * dt));
   }
   if (controls.autoLevelRoll) {
     rightVec.set(1, 0, 0).applyQuaternion(q);

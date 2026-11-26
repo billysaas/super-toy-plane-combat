@@ -75,6 +75,7 @@ export interface HudData {
   deaths: number;
   boosting: boolean;
   invulnerable: boolean;
+  stalled: boolean;
   target: HudTarget | null;
   radar: RadarBlip[];
   playerHeading: number;
@@ -134,6 +135,7 @@ interface LocalPlane {
   bot?: BotPilot;
   controls: Controls;
   smokeTimer: number;
+  flameTimer: number;
   trailTimer: number;
   collisionCooldown: number;
   fireSide: number;
@@ -290,6 +292,7 @@ export class LocalMatch {
       view,
       controls,
       smokeTimer: 0,
+      flameTimer: 0,
       trailTimer: 0,
       collisionCooldown: 0,
       fireSide: 0,
@@ -327,7 +330,7 @@ export class LocalMatch {
     this.updatePresentation(frameDt);
     this.deps.physics.step(frameDt);
     this.deps.effects.update(frameDt, this.deps.physics);
-    this.deps.audio.setEngine(this.player.runtime.flight.speed, this.player.controls.boost, this.player.runtime.alive);
+    this.deps.audio.setEngine(this.player.runtime.flight.speed, this.player.controls.boost, this.player.runtime.alive, this.player.runtime.health / this.player.runtime.maxHealth);
     this.updateCamera(frameDt);
     this.updateHudTarget();
     this.hitFlash = Math.max(0, this.hitFlash - frameDt * 4.2);
@@ -371,7 +374,8 @@ export class LocalMatch {
       }
       const speedBefore = p.runtime.flight.speed;
       const from = tmp.set(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z).clone();
-      integrateFlight(p.runtime.flight, p.def, p.controls, dt);
+      const condition = p.runtime.health / p.runtime.maxHealth;
+      integrateFlight(p.runtime.flight, p.def, p.controls, dt, condition);
       const to = new Vector3(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z);
       const sweep = this.deps.physics.planeSweep(from, to, WORLD.planeRadius);
       if (sweep.hit) {
@@ -400,6 +404,7 @@ export class LocalMatch {
     for (const p of this.planes) {
       if (!p.runtime.alive) continue;
       p.smokeTimer -= dt;
+      p.flameTimer -= dt;
       p.trailTimer -= dt;
       if (p.controls.boost && p.trailTimer <= 0) {
         p.trailTimer = 0.025;
@@ -412,6 +417,12 @@ export class LocalMatch {
         fwd.set(0, 0, -1).applyQuaternion(q.set(p.runtime.flight.qx, p.runtime.flight.qy, p.runtime.flight.qz, p.runtime.flight.qw));
         const exhaust = new Vector3().copy(p.view.exhaustLocal).applyQuaternion(q).add(new Vector3(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z));
         this.deps.effects.smokeTrail(exhaust, fwd, p.runtime.health / p.runtime.maxHealth < 0.2, 0.9);
+      }
+      if (p.runtime.health / p.runtime.maxHealth < 0.22 && p.flameTimer <= 0) {
+        p.flameTimer = 0.07;
+        fwd.set(0, 0, -1).applyQuaternion(q.set(p.runtime.flight.qx, p.runtime.flight.qy, p.runtime.flight.qz, p.runtime.flight.qw));
+        const exhaust = new Vector3().copy(p.view.exhaustLocal).applyQuaternion(q).add(new Vector3(p.runtime.flight.x, p.runtime.flight.y, p.runtime.flight.z));
+        this.deps.effects.damageFlame(exhaust, fwd);
       }
     }
     if (this.timeLeft <= 0) this.endMatch();
@@ -815,10 +826,14 @@ export class LocalMatch {
 
   private updateCamera(dt: number): void {
     if (!this.player.runtime.alive) {
+      this.deps.camera.setBuffet(0);
       this.deps.camera.updateDeath(dt, this.player.runtime, this.deps.camera.camera.aspect);
       return;
     }
     const speedRatio = this.player.runtime.flight.speed / this.player.def.boostSpeed;
+    const healthRatio = this.player.runtime.health / this.player.runtime.maxHealth;
+    const stalled = this.player.runtime.flight.speed < this.player.def.minSpeed * 0.82;
+    this.deps.camera.setBuffet(Math.max(0, 0.5 - healthRatio) * 1.4 + (stalled ? 0.55 : 0));
     const firing = this.player.controls.fire || this.player.controls.rocket;
     this.deps.camera.update(dt, this.player.runtime, speedRatio, this.player.controls.boost, this.deps.camera.camera.aspect, firing);
     this.player.view.setCockpitHidden(this.cameraMode === "cockpit");
@@ -939,6 +954,7 @@ export class LocalMatch {
       deaths: p.deaths,
       boosting: this.player.controls.boost && p.alive,
       invulnerable: this.simTime < p.invulnerableUntil,
+      stalled: p.alive && p.flight.speed < this.player.def.minSpeed * 0.82,
       target: hudTarget,
       radar,
       playerHeading: yaw * 180 / Math.PI,
