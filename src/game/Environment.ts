@@ -2,6 +2,7 @@ import {
   AdditiveBlending,
   AmbientLight,
   BoxGeometry,
+  BufferAttribute,
   BufferGeometry,
   CanvasTexture,
   CircleGeometry,
@@ -25,6 +26,7 @@ import {
   Object3D,
   PlaneGeometry,
   PointLight,
+  Points,
   RepeatWrapping,
   RingGeometry,
   Scene,
@@ -188,7 +190,7 @@ function buildMaterials(): void {
   materialsStore.wall = new MeshStandardMaterial({ color: 0xf1e1c9, roughness: 0.94, map: wallMap });
   materialsStore.exterior = new MeshStandardMaterial({ color: 0xd7b58f, roughness: 0.96, map: wallMap });
   materialsStore.trim = new MeshStandardMaterial({ color: 0x6a472e, roughness: 0.8 });
-  materialsStore.floor = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: woodMap });
+  materialsStore.floor = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.72, metalness: 0.04, map: woodMap });
   materialsStore.roof = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, map: roofMap });
   materialsStore.stone = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, map: stoneMap });
   materialsStore.wood = new MeshStandardMaterial({ color: 0x8f6542, roughness: 0.82, map: woodMap });
@@ -234,10 +236,14 @@ export class Environment {
   private lampLights: PointLight[] = [];
   private cloudGroup = new Group();
   private quality: Quality;
-  private sun?: DirectionalLight;
-  private shadowMeshes: Object3D[] = [];
   private waterMaterials: MeshStandardMaterial[] = [];
   private fountainJets: Mesh[] = [];
+  private sun?: DirectionalLight;
+  private shadowMeshes: Object3D[] = [];
+  private dust?: Points;
+  private dustUniforms?: { uTime: { value: number }; uPixelRatio: { value: number } };
+  private lightShafts?: Group;
+  private contactShadowTexture?: CanvasTexture;
   private time = 0;
 
   constructor(scene: Scene, assets: AssetStore, quality: Quality) {
@@ -263,6 +269,7 @@ export class Environment {
     this.buildGarden();
     this.buildClouds();
     this.buildDecor();
+    this.buildAtmosphere();
     this.setQuality(this.quality);
   }
 
@@ -498,18 +505,18 @@ export class Environment {
       this.flames.push({ mesh: flame, phase: i * 1.7 });
       group.add(flame);
     }
-    this.fireLight = new PointLight(0xff8a3d, 600, 35, 1.65);
+    this.fireLight = new PointLight(0xff8a3d, 460, 35, 1.65);
     this.fireLight.position.set(-43.2, 3.1, 0);
     group.add(this.fireLight);
     this.decorations.add(group);
   }
 
   private buildLighting(): void {
-    const hemi = new HemisphereLight(0xd8ecff, 0x9f8459, 1.9);
+    const hemi = new HemisphereLight(0xd8ecff, 0x9f8459, 1.45);
     this.scene.add(hemi);
-    const ambient = new AmbientLight(0xfff4e5, 0.92);
+    const ambient = new AmbientLight(0xfff4e5, 0.6);
     this.scene.add(ambient);
-    const sun = new DirectionalLight(0xfff2d2, 2.7);
+    const sun = new DirectionalLight(0xfff2d2, 2.4);
     sun.position.set(-75, 95, 55);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -536,24 +543,24 @@ export class Environment {
     chain.position.y = 2.4;
     chandelier.add(chain);
     for (let i = 0; i < 8; i++) {
-      const candle = new Mesh(new CylinderGeometry(0.18, 0.18, 1.1, 5), new MeshStandardMaterial({ color: 0xf0d8a7, emissive: 0xffc37a, emissiveIntensity: 0.5 }));
+      const candle = new Mesh(new CylinderGeometry(0.18, 0.18, 1.1, 5), new MeshStandardMaterial({ color: 0xf0d8a7, emissive: 0xffc37a, emissiveIntensity: 0.35 }));
       const a = (i / 8) * Math.PI * 2;
       candle.position.set(Math.cos(a) * 2.65, 0.35, Math.sin(a) * 2.65);
       chandelier.add(candle);
     }
     chandelier.position.set(-25, 17.2, 4);
     this.decorations.add(chandelier);
-    const warm = new PointLight(0xffcb8f, 950, 54, 1.65);
+    const warm = new PointLight(0xffcb8f, 720, 54, 1.65);
     warm.position.set(-25, 16.2, 4);
     this.lampLights.push(warm);
     this.scene.add(warm);
 
-    const kitchenLight = new PointLight(0xffe3b2, 680, 40, 1.6);
+    const kitchenLight = new PointLight(0xffe3b2, 540, 40, 1.6);
     kitchenLight.position.set(18, 8, -24);
     this.lampLights.push(kitchenLight);
     this.scene.add(kitchenLight);
 
-    const upperLight = new PointLight(0xffd9a0, 560, 42, 1.6);
+    const upperLight = new PointLight(0xffd9a0, 440, 42, 1.6);
     upperLight.position.set(3, 18, 12);
     this.lampLights.push(upperLight);
     this.scene.add(upperLight);
@@ -584,6 +591,11 @@ export class Environment {
         }
       });
       this.furnitureGroup.add(obj);
+      if (f.collider) {
+        const floorY = f.y > 8 ? 10.525 : f.y > 0.05 ? 0.372 : 0.032;
+        const radius = Math.max(f.collider.hx, f.collider.hz) * 2.55;
+        this.addContactShadow(f.x, floorY, f.z, radius, 0.34);
+      }
     }
     for (const t of TREES) {
       const obj = this.assets.createFurniture(t.assetId, shadows);
@@ -598,6 +610,7 @@ export class Environment {
         }
       });
       this.furnitureGroup.add(obj);
+      this.addContactShadow(t.x, 0.028, t.z, 4.2 * t.scale, 0.3);
     }
   }
 
@@ -759,7 +772,7 @@ export class Environment {
     poster(-47.32, 12, -12, Math.PI / 2, 4.5, 5.7, "CHOCKS AWAY", "NO STANDS. NO LIMITS.", "#9c6639", "#e7be62");
     poster(-6.47, 6, 18, -Math.PI / 2, 3.4, 4.4, "WATCH THE RUG", "LOW CEILING CLUB", "#315d70", "#f3d07d");
     const waxMat = new MeshStandardMaterial({ color: 0x8e3d2e, roughness: 0.8 });
-    const candleMat = new MeshStandardMaterial({ color: 0xf1d8a2, emissive: 0xffb85c, emissiveIntensity: 0.4 });
+    const candleMat = new MeshStandardMaterial({ color: 0xf1d8a2, emissive: 0xffb85c, emissiveIntensity: 0.3 });
     const sconcePositions: Array<[number, number, number, number]> = [
       [-34, 8.5, -35.15, 0], [-18, 8.5, -35.15, 0], [-47.2, 8.5, 20, Math.PI / 2], [-47.2, 8.5, -8, Math.PI / 2],
     ];
@@ -801,6 +814,197 @@ export class Environment {
     }
   }
 
+  private addContactShadow(x: number, y: number, z: number, radius: number, opacity: number): void {
+    if (!this.contactShadowTexture) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 62);
+        grad.addColorStop(0, "rgba(30,20,12,.92)");
+        grad.addColorStop(0.45, "rgba(30,20,12,.52)");
+        grad.addColorStop(0.8, "rgba(30,20,12,.16)");
+        grad.addColorStop(1, "rgba(30,20,12,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 128, 128);
+      }
+      this.contactShadowTexture = new CanvasTexture(canvas);
+      this.contactShadowTexture.colorSpace = SRGBColorSpace;
+    }
+    const mat = new MeshBasicMaterial({
+      map: this.contactShadowTexture,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    const shadow = new Mesh(new PlaneGeometry(radius * 2, radius * 2), mat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.set(x, y, z);
+    shadow.renderOrder = 1;
+    this.decorations.add(shadow);
+  }
+
+  private buildAtmosphere(): void {
+    this.buildLightShafts();
+    this.buildSunPools();
+    this.buildDust();
+  }
+
+  private buildLightShafts(): void {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      const v = ctx.createLinearGradient(0, 0, 0, 256);
+      v.addColorStop(0, "rgba(255,244,214,.9)");
+      v.addColorStop(0.55, "rgba(255,238,196,.38)");
+      v.addColorStop(1, "rgba(255,232,180,0)");
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, 128, 256);
+      const h = ctx.createLinearGradient(0, 0, 128, 0);
+      h.addColorStop(0, "rgba(0,0,0,0)");
+      h.addColorStop(0.3, "rgba(255,255,255,1)");
+      h.addColorStop(0.7, "rgba(255,255,255,1)");
+      h.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.fillStyle = h;
+      ctx.fillRect(0, 0, 128, 256);
+    }
+    const tex = new CanvasTexture(canvas);
+    tex.colorSpace = SRGBColorSpace;
+    const mat = new MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.22,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
+      fog: false,
+    });
+    const group = new Group();
+    const beams: Array<{ x: number; z: number; w: number; h: number; tilt: number }> = [
+      { x: -27, z: -3, w: 15, h: 24, tilt: -0.16 },
+      { x: -17, z: 3, w: 9, h: 22, tilt: 0.12 },
+      { x: 31, z: 27, w: 8, h: 15, tilt: 0.2 },
+    ];
+    for (const beam of beams) {
+      for (let i = 0; i < 3; i++) {
+        const plane = new Mesh(new PlaneGeometry(beam.w, beam.h), mat);
+        plane.position.set(beam.x, 10.4 + beam.h * 0.32, beam.z);
+        plane.rotation.y = (i / 3) * Math.PI;
+        plane.rotation.z = beam.tilt;
+        plane.renderOrder = 2;
+        group.add(plane);
+      }
+    }
+    this.lightShafts = group;
+    this.decorations.add(group);
+  }
+
+  private buildSunPools(): void {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      const grad = ctx.createRadialGradient(128, 64, 2, 128, 64, 120);
+      grad.addColorStop(0, "rgba(255,241,205,.95)");
+      grad.addColorStop(0.4, "rgba(255,235,190,.5)");
+      grad.addColorStop(0.75, "rgba(255,226,170,.15)");
+      grad.addColorStop(1, "rgba(255,226,170,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 256, 128);
+    }
+    const tex = new CanvasTexture(canvas);
+    tex.colorSpace = SRGBColorSpace;
+    const mat = new MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.13,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    });
+    const pools: Array<{ x: number; y: number; z: number; w: number; h: number; rot: number }> = [
+      { x: -23, y: 0.385, z: 1, w: 25, h: 13, rot: 0.3 },
+      { x: -34, y: 0.385, z: 26, w: 12, h: 8, rot: -0.6 },
+      { x: 22, y: 0.385, z: 31, w: 16, h: 9, rot: 0.9 },
+      { x: 18, y: 0.045, z: 49, w: 22, h: 12, rot: -0.3 },
+    ];
+    for (const pool of pools) {
+      const mesh = new Mesh(new PlaneGeometry(pool.w, pool.h), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = pool.rot;
+      mesh.position.set(pool.x, pool.y, pool.z);
+      mesh.renderOrder = 2;
+      this.decorations.add(mesh);
+    }
+  }
+
+  private buildDust(): void {    const count = 620;
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    const phases = new Float32Array(count);
+    const rng = seeded(404);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = -45 + rng() * 90;
+      positions[i * 3 + 1] = 1.2 + rng() * 19.5;
+      positions[i * 3 + 2] = -34 + rng() * 68;
+      sizes[i] = 0.1 + rng() * 0.3;
+      phases[i] = rng() * Math.PI * 2;
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(positions, 3));
+    geo.setAttribute("aSize", new BufferAttribute(sizes, 1));
+    geo.setAttribute("aPhase", new BufferAttribute(phases, 1));
+    const uniforms = {
+      uTime: { value: 0 },
+      uPixelRatio: { value: Math.min(2, window.devicePixelRatio || 1) },
+    };
+    const mat = new ShaderMaterial({
+      uniforms,
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      vertexShader: /* glsl */ `
+        attribute float aSize;
+        attribute float aPhase;
+        uniform float uTime;
+        uniform float uPixelRatio;
+        varying float vAlpha;
+        void main() {
+          vec3 p = position;
+          p.x += sin(uTime * 0.11 + aPhase * 3.1) * 1.4;
+          p.y += sin(uTime * 0.08 + aPhase * 5.7) * 0.8;
+          p.z += cos(uTime * 0.09 + aPhase * 2.3) * 1.4;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_PointSize = min(aSize * uPixelRatio * (360.0 / max(1.0, -mv.z)), 11.0 * uPixelRatio);
+          gl_Position = projectionMatrix * mv;
+          vAlpha = 0.16 + 0.14 * sin(uTime * 1.4 + aPhase * 12.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying float vAlpha;
+        void main() {
+          vec2 d = gl_PointCoord - 0.5;
+          float fade = smoothstep(0.5, 0.05, length(d));
+          gl_FragColor = vec4(1.0, 0.94, 0.8, vAlpha * fade);
+        }
+      `,
+    });
+    const points = new Points(geo, mat);
+    points.frustumCulled = false;
+    this.dust = points;
+    this.dustUniforms = uniforms;
+    this.scene.add(points);
+  }
+
   setQuality(quality: Quality): void {
     this.quality = quality;
     const shadows = quality !== "low";
@@ -820,6 +1024,8 @@ export class Environment {
       this.lampLights[i].visible = quality === "high" ? true : quality === "medium" ? i < 7 : i < 3;
     }
     this.cloudGroup.visible = quality !== "low";
+    if (this.dust) this.dust.visible = quality !== "low";
+    if (this.lightShafts) this.lightShafts.visible = quality !== "low";
   }
 
   update(dt: number, elapsed: number): void {
@@ -828,13 +1034,14 @@ export class Environment {
       const pulse = 0.72 + Math.sin(elapsed * 9 + f.phase) * 0.18 + Math.sin(elapsed * 22 + f.phase * 2) * 0.08;
       f.mesh.scale.set(0.8 + pulse * 0.28, pulse, 0.8 + pulse * 0.28);
     }
-    if (this.fireLight) this.fireLight.intensity = 560 + Math.sin(elapsed * 11) * 90 + Math.sin(elapsed * 23) * 40;
+    if (this.fireLight) this.fireLight.intensity = 430 + Math.sin(elapsed * 11) * 75 + Math.sin(elapsed * 23) * 34;
     for (const mat of this.waterMaterials) mat.opacity = 0.68 + Math.sin(elapsed * 1.7) * 0.04;
     this.fountainJets.forEach((jet, i) => {
       jet.scale.y = 0.9 + Math.sin(elapsed * 2.2 + i) * 0.08;
       jet.rotation.y = elapsed * 0.2 + i;
     });
     this.cloudGroup.position.x = (elapsed * 0.7) % 40;
+    if (this.dustUniforms) this.dustUniforms.uTime.value = elapsed;
   }
 
   setShadows(enabled: boolean): void {

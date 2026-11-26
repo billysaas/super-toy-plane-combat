@@ -249,7 +249,7 @@ export class Effects {
         depthWrite: false,
       }));
       const ring = new Mesh(this.ringGeo, new MeshBasicMaterial({
-        color: 0xffe6ad,
+        color: new Color(0xffe6ad).multiplyScalar(2.2),
         transparent: true,
         opacity: 0,
         side: DoubleSide,
@@ -271,7 +271,8 @@ export class Effects {
   spawnTracer(from: Vector3, to: Vector3, color = 0xffdf8a, life = 0.075): void {
     if (!this.tracersEnabled) return;
     if (this.tracers.length > 318) this.tracers.shift();
-    this.tracers.push({ from: from.clone(), to: to.clone(), life, maxLife: life, color: new Color(color) });
+    const bright = new Color(color).multiplyScalar(2.4);
+    this.tracers.push({ from: from.clone(), to: to.clone(), life, maxLife: life, color: bright });
   }
 
   muzzle(position: Vector3, dir: Vector3, color = 0xffd980): void {
@@ -281,10 +282,10 @@ export class Effects {
         vx: dir.x * (14 + Math.random() * 10) + (Math.random() - 0.5) * 8,
         vy: dir.y * (14 + Math.random() * 10) + (Math.random() - 0.5) * 8,
         vz: dir.z * (14 + Math.random() * 10) + (Math.random() - 0.5) * 8,
-        life: 0.09 + Math.random() * 0.09,
-        size: 0.38,
-        drag: 0.88,
-        r: 1, g: 0.72, b: 0.3, a: 0.95,
+        life: 0.07 + Math.random() * 0.07,
+        size: 0.2 + Math.random() * 0.1,
+        drag: 0.86,
+        r: 2.6, g: 1.7, b: 0.55, a: 0.9,
       });
     }
     void color;
@@ -325,7 +326,7 @@ export class Effects {
         life: 0.16 + Math.random() * 0.2,
         size: 0.25,
         drag: 0.95,
-        r: 1, g: 0.88, b: 0.7, a: 1,
+        r: 3.2, g: 2.4, b: 1.2, a: 1,
       });
     }
     this.smoke.spawn({ x: position.x, y: position.y, z: position.z, life: 0.35, size: 0.8, sizeGrow: 1.5, r: c.r, g: c.g, b: c.b, a: 0.4 });
@@ -360,7 +361,7 @@ export class Effects {
       size: 0.5,
       sizeGrow: 1.2,
       drag: 0.95,
-      r: Math.min(1, c.r + 0.3), g: Math.min(1, c.g + 0.2), b: Math.min(1, c.b + 0.2), a: 0.65,
+      r: Math.min(3, c.r * 2.4 + 0.6), g: Math.min(3, c.g * 2.2 + 0.45), b: Math.min(3, c.b * 2 + 0.4), a: 0.6,
     });
   }
 
@@ -376,7 +377,7 @@ export class Effects {
     const previous = blast.fire.material;
     if (previous instanceof MeshBasicMaterial) previous.dispose();
     blast.fire.material = new MeshBasicMaterial({
-      color: teamColor,
+      color: new Color(teamColor).multiplyScalar(2.4),
       transparent: true,
       opacity: 0.9,
       blending: AdditiveBlending,
@@ -397,7 +398,7 @@ export class Effects {
         sizeGrow: 2.2 * scale,
         drag: 0.9,
         gravity: 2,
-        r: 1, g: 0.45 + Math.random() * 0.35, b: 0.12, a: 1,
+        r: 3.0, g: 1.5 + Math.random() * 1.1, b: 0.35, a: 1,
       });
     }
     const smokeCount = this.quality === "low" ? 8 : 18;

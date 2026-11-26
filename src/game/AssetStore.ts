@@ -178,10 +178,11 @@ export class AssetStore {
     if (existing) return existing;
     const mat = new MeshStandardMaterial({
       vertexColors: true,
-      metalness: 0.08,
-      roughness: 0.76,
+      metalness: 0.16,
+      roughness: 0.66,
       flatShading: true,
       color: 0xffffff,
+      envMapIntensity: 0.7,
     });
     this.planeMaterials.set(aircraftId, mat);
     return mat;
