@@ -12,6 +12,8 @@ export interface AIWorldPlane {
   runtime: PlaneRuntime;
 }
 
+export type BotStyle = "aggressor" | "sniper" | "trickster" | "energy";
+
 const PATROL_POINTS = [
   new Vector3(-25, 8, 4), new Vector3(-35, 6, -24), new Vector3(18, 6, -24),
   new Vector3(34, 7, -4), new Vector3(36, 7, 26), new Vector3(4, 16, 4),
@@ -55,11 +57,34 @@ export class BotPilot {
   private passTimer = 0;
   private breakDir = new Vector3(0, 0, -1);
   private aimedAtTarget = false;
+  private style: BotStyle;
+  private evadeTimer = 0;
+  private evadeSide = 1;
+  private evadeDive = 0;
 
   constructor(difficulty: Difficulty, mode: GameMode, seed = Math.random() * 10000) {
     this.difficulty = difficulty;
     this.mode = mode;
     this.seed = seed;
+    const styles: BotStyle[] = ["aggressor", "sniper", "trickster", "energy"];
+    this.style = styles[Math.floor(seed) % styles.length];
+  }
+
+  get personality(): BotStyle {
+    return this.style;
+  }
+
+  onHit(): void {
+    if (this.evadeTimer > 0.45) return;
+    this.evadeTimer = 0.8 + Math.random() * 0.75;
+    this.evadeSide = Math.random() > 0.5 ? 1 : -1;
+    this.evadeDive = Math.random() > 0.55 ? -0.45 : 0.2;
+  }
+
+  onMissileThreat(): void {
+    if (this.evadeTimer < 0.4) this.evadeSide = Math.random() > 0.5 ? 1 : -1;
+    this.evadeTimer = Math.max(this.evadeTimer, 1.25);
+    this.evadeDive = -0.35;
   }
 
   reset(): void {
@@ -75,6 +100,8 @@ export class BotPilot {
     this.passTimer = 0;
     this.breakDir.set(0, 0, -1);
     this.aimedAtTarget = false;
+    this.evadeTimer = 0;
+    this.evadeDive = 0;
   }
 
   get accuracy(): number {
@@ -87,6 +114,7 @@ export class BotPilot {
     this.reactionTimer -= dt;
     this.rocketTimer -= dt;
     this.jinkTimer -= dt;
+    this.evadeTimer -= dt;
     this.burstRest -= dt;
     this.fireBurst -= dt;
     const f = self.flight;
@@ -153,9 +181,10 @@ export class BotPilot {
     } else if (this.passPhase === "attack") {
       if (targetVisible && aim > 0.9) this.aimedAtTarget = true;
       const overshoot = this.aimedAtTarget && aim < 0.2 && targetDist < 50;
-      if (overshoot || targetDist < 9) {
+      const extendDist = this.style === "sniper" ? 34 : this.style === "aggressor" ? 10 : 14;
+      if (overshoot || targetDist < extendDist) {
         this.passPhase = "extend";
-        this.passTimer = 3.2 + Math.random() * 2;
+        this.passTimer = (this.style === "energy" ? 4.6 : this.style === "sniper" ? 2.3 : 3.2) + Math.random() * 2;
         this.breakDir.copy(forward);
         this.aimedAtTarget = false;
       }
@@ -163,7 +192,7 @@ export class BotPilot {
       this.passTimer -= dt;
       breakAway.copy(position).sub(targetPoint);
       if (breakAway.lengthSq() < 0.001) breakAway.copy(forward);
-      breakAway.y = clamp(breakAway.y, -0.35, 0.5);
+      breakAway.y = this.style === "energy" ? clamp(breakAway.y, -0.7, 0.2) : clamp(breakAway.y, -0.35, 0.5);
       breakAway.normalize();
       const awayWeight = targetDist < 18 ? 0.5 : 0.3;
       this.breakDir.copy(forward).multiplyScalar(1 - awayWeight).addScaledVector(breakAway, awayWeight).normalize();
@@ -270,26 +299,33 @@ export class BotPilot {
     let throttle = this.passPhase === "extend" ? 1 : 0.85;
     if (targetDist > 40 && forwardClear > 28) throttle = 0.95;
     if (this.passPhase === "attack" && targetDist < 16) throttle = 0.72;
+    if (this.style === "aggressor" && targetDist > 28) throttle = Math.min(1, throttle + 0.1);
+    if (this.style === "sniper" && targetDist < 55) throttle = 0.72;
     if (forwardClear < 24) throttle = 0.38;
     if (forwardClear < 12) throttle = 0.28;
     if (f.speed < 5.7) throttle = 1;
-    const boosting = forwardClear > 30 && (
+    let boosting = forwardClear > 30 && (
       (this.passPhase === "extend" && f.boost > 30) ||
+      (this.style === "energy" && this.passPhase === "extend" && f.boost > 15) ||
       (targetDist > 100 && this.jinkTimer <= 0 && f.boost > 25)
     );
 
     let fire = false;
     let rocket = false;
     if (target && targetVisible && forwardClear > 8 && targetDist < 110 && this.passPhase === "attack") {
-      const aimWindow = 0.984 - (1 - skill.accuracy) * 0.045 - (targetDist < 26 ? 0.02 : 0);
+      const styleAim = this.style === "sniper" ? 0.004 : this.style === "aggressor" ? -0.004 : 0;
+      const aimWindow = 0.984 - (1 - skill.accuracy) * 0.045 - (targetDist < 26 ? 0.02 : 0) + styleAim;
       if (aim > aimWindow) {
         if (this.burstRest <= 0 && this.fireBurst <= 0) {
-          this.fireBurst = 0.7 + Math.random() * 0.8;
-          this.burstRest = this.fireBurst + 0.35 + Math.random() * 0.55;
+          const burst = this.style === "sniper" ? 1.15 : this.style === "aggressor" ? 0.52 : this.style === "trickster" ? 0.42 : 0.72;
+          this.fireBurst = burst + Math.random() * 0.7;
+          this.burstRest = this.fireBurst + (this.style === "trickster" ? 0.8 : 0.4) + Math.random() * 0.5;
         }
         fire = this.fireBurst > 0;
       }
-      if (targetDist > 24 && targetDist < 85 && aim > 0.993 && this.rocketTimer <= 0 && Math.random() < skill.aggression * 0.025) {
+      const rocketNear = this.style === "aggressor" ? 20 : 24;
+      const rocketFar = this.style === "sniper" ? 115 : 85;
+      if (targetDist > rocketNear && targetDist < rocketFar && aim > 0.993 && this.rocketTimer <= 0 && Math.random() < skill.aggression * 0.025) {
         rocket = true;
         this.rocketTimer = 4 + Math.random() * 5;
       }
@@ -298,6 +334,15 @@ export class BotPilot {
     pitch = clamp(pitch + (Math.random() - 0.5) * jitter, -1, 1);
     yaw = clamp(yaw + (Math.random() - 0.5) * jitter, -1, 1);
     roll = clamp(roll + (Math.random() - 0.5) * jitter * 0.45, -1, 1);
+    if (this.evadeTimer > 0) {
+      roll = clamp(roll + this.evadeSide * 1.0, -1, 1);
+      yaw = clamp(yaw + this.evadeSide * 0.75, -1, 1);
+      pitch = clamp(pitch + this.evadeDive, -1, 1);
+      throttle = 1;
+      boosting = f.boost > 8;
+      fire = false;
+      rocket = false;
+    }
     void startDir;
     void fireCooldown;
 
