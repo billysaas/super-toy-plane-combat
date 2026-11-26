@@ -182,7 +182,7 @@
           <div class="panel-title">02 — TURN FIGHT</div>
           <p>Pitch and roll with <b>WASD</b> or the mouse. Bank hard, then add <b>Q / E</b> rudder to tighten the turn. The yaw rate is lower than the roll rate — use both.</p>
           <div class="panel-title">03 — SHOOT</div>
-          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. Rockets track whatever you have locked in your sights; when you hear the lock warning, pop <b>F</b> flares and break. Chain kills without dying: three in a row refills rapid fire, five adds armour, seven repairs your hull, and ten reloads your rockets.</p>
+          <p>Put the yellow reticle on a bandit and hold <b>SPACE</b> or <b>LEFT MOUSE</b>. Rockets fly with <b>R</b> or <b>RIGHT MOUSE</b>. A yellow <b>LOCK</b> tag beside the target bracket means the rocket will track; when you hear the missile warning, pop <b>F</b> flares and break. Chain kills without dying: three in a row refills rapid fire, five adds armour, seven repairs your hull, and ten reloads your rockets.</p>
           <div class="panel-title">04 — SURVIVE</div>
           <p>Health regenerates only when you respawn. Watch the smoke trail and break off when your wings are red. Fly through windows, under the dining table, and around the garden to lose a tail. Shoot down balloons and fly through their drops — the cyan shield soaks damage for ten seconds.</p>
         </div>
@@ -313,6 +313,7 @@
       </div>
       <div id="target-bracket" class="target-bracket hidden">
         <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <span id="target-lock" class="target-lock hidden">LOCK</span>
         <span id="target-distance">0M</span>
         <div class="target-health"><span id="target-health-fill"></span></div>
       </div>

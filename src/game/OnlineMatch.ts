@@ -244,6 +244,7 @@ export class OnlineMatch implements ActiveMatch {
   private stats = createMatchStats();
   private clock = 0;
   private lifeStartedAt = 0;
+  private lockTone = false;
 
   constructor(deps: OnlineMatchDeps) {
     this.deps = deps;
@@ -723,6 +724,7 @@ export class OnlineMatch implements ActiveMatch {
     if (!this.localSnapshot?.alive) {
       this.lastHudTarget = null;
       this.targetId = null;
+      this.lockTone = false;
       return;
     }
     const f = this.local.runtime.flight;
@@ -756,11 +758,14 @@ export class OnlineMatch implements ActiveMatch {
     if (!best) {
       this.targetId = null;
       this.lastHudTarget = null;
+      this.lockTone = false;
       return;
     }
     const chosen = best as Snapshot;
     this.targetId = chosen.id;
     const targetPos = new Vector3(chosen.flight.x, chosen.flight.y, chosen.flight.z);
+    const toTarget = targetPos.clone().sub(playerPos).normalize();
+    const locked = toTarget.dot(fwd) > 0.95;
     tmp2.copy(targetPos).project(camera);
     const onScreen = tmp2.z < 1 && tmp2.z > -1 && Math.abs(tmp2.x) < 1.15 && Math.abs(tmp2.y) < 1.15;
     this.lastHudTarget = {
@@ -770,7 +775,10 @@ export class OnlineMatch implements ActiveMatch {
       health: chosen.health / chosen.maxHealth,
       team: chosen.team,
       onScreen,
+      locked,
     };
+    if (locked && !this.lockTone) this.deps.audio.lockOn();
+    this.lockTone = locked;
   }
 
   getHud(): HudData {

@@ -1986,6 +1986,31 @@ select {
   text-shadow: 1px 1px 0 #000;
 }
 
+.target-bracket .target-lock {
+  left: calc(100% + 9px);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--yellow);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-shadow: 1px 1px 0 #000, 0 0 9px rgba(248, 200, 64, 0.55);
+  animation: target-lock-pulse 0.9s steps(2, end) infinite;
+}
+
+.target-bracket.locked {
+  border-color: rgba(248, 200, 64, 0.85);
+  box-shadow: 0 0 14px rgba(248, 200, 64, 0.18);
+}
+
+.target-bracket.locked i {
+  border-color: var(--yellow);
+}
+
+@keyframes target-lock-pulse {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.55; }
+}
+
 .target-health {
   position: absolute;
   left: 50%;

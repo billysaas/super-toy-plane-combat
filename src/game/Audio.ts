@@ -438,6 +438,26 @@ export class AudioManager {
     }
   }
 
+  lockOn(): void {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    for (let i = 0; i < 2; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = i === 0 ? 1180 : 1560;
+      const t = now + i * 0.055;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.linearRampToValueAtTime(0.03, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.connect(gain);
+      gain.connect(this.master);
+      osc.start(t);
+      osc.stop(t + 0.12);
+    }
+  }
+
   explosion(distance = 0, big = false): void {
     if (!this.ctx || !this.master || !this.noiseBuffer) return;
     const ctx = this.ctx;
