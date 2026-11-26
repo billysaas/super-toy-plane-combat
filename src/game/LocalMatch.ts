@@ -239,6 +239,7 @@ export class LocalMatch {
   private killMarkers = 0;
   private result: MatchResult | null = null;
   private missileWarned = false;
+  private lastBotChat = 0;
 
   constructor(deps: LocalMatchDeps, config: SoloConfig = DEFAULT_SOLO) {
     this.deps = deps;
@@ -270,7 +271,7 @@ export class LocalMatch {
     const rafNames = [...BOT_NAMES_RAF].sort(() => Math.random() - 0.5);
     const enemyCount = clamp(this.config.enemies, 1, 11);
     for (let i = 0; i < enemyCount; i++) {
-      const team: Team = "AXIS";
+      const team: Team = this.config.mode === "ffa" ? (i % 2 === 0 ? "AXIS" : "RAF") : "AXIS";
       const name = team === "AXIS" ? axisNames[i % axisNames.length] : rafNames[i % rafNames.length];
       const botDef = AIRCRAFT[(i + 1 + Math.floor(Math.random() * 3)) % AIRCRAFT.length];
       const spawnPoint = i === 0 ? { x: -22, y: 9, z: -5, yaw: Math.PI } : getSpawnForTeam(team);
@@ -422,9 +423,10 @@ export class LocalMatch {
         }));
         p.controls = p.bot.update(dt, p.runtime, aiPlanes, p.runtime.fireCooldown);
         p.controls.flare = false;
-        if (p.runtime.flares > 0 && p.flareCooldown <= 0 && Math.random() < 0.035) {
-          const threatened = this.rockets.some((r) => r.targetId === p.runtime.id && Math.hypot(r.x - p.runtime.flight.x, r.y - p.runtime.flight.y, r.z - p.runtime.flight.z) < 110);
-          if (threatened) p.controls.flare = true;
+        const threatened = this.rockets.some((r) => r.targetId === p.runtime.id && !r.decoyed && Math.hypot(r.x - p.runtime.flight.x, r.y - p.runtime.flight.y, r.z - p.runtime.flight.z) < 110);
+        if (threatened) {
+          p.bot.onMissileThreat();
+          if (p.runtime.flares > 0 && p.flareCooldown <= 0 && Math.random() < 0.06) p.controls.flare = true;
         }
       }
       const speedBefore = p.runtime.flight.speed;
@@ -920,6 +922,7 @@ export class LocalMatch {
     target.runtime.health -= remaining;
     target.runtime.lastHitAt = this.simTime;
     if (attackerId) target.runtime.lastHitBy = attackerId;
+    if (target.bot && target.runtime.alive) target.bot.onHit();
     if (target === this.player) this.damageFlash = Math.min(1, this.damageFlash + amount / 80);
     if (target.runtime.health <= 0) {
       target.runtime.health = 0;
@@ -967,6 +970,17 @@ export class LocalMatch {
     this.killFeed.push(event);
     if (this.killFeed.length > 5) this.killFeed.shift();
     this.deps.callbacks.onKill(event);
+    if (killer?.bot && this.simTime - this.lastBotChat > 7 && Math.random() < 0.3) {
+      const lines = [
+        "Scratch one toy flier.",
+        "Splash! Who's next?",
+        "Too slow, pilot.",
+        "That's a clean kill.",
+        "Better luck in the toy box.",
+      ];
+      this.lastBotChat = this.simTime;
+      this.deps.callbacks.onChat(killer.runtime.name, lines[Math.floor(Math.random() * lines.length)], killer.runtime.team);
+    }
     if (victim === this.player) {
       this.deps.callbacks.onKilled();
       this.deps.audio.stopEngine();
